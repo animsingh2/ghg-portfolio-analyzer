@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHG Financed Emissions Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.09);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1a1916;
+    --text-muted: #6b6960;
+    --text-faint: #9b9a94;
+    --accent: #1a3a2a;
+    --accent-light: #e4efe8;
+    --accent-mid: #2d6b47;
+    --amber: #c47f1a;
+    --amber-light: #fdf3e0;
+    --red: #b03a2a;
+    --red-light: #fbeae7;
+    --blue: #1a4a7a;
+    --blue-light: #e6eff9;
+    --r1: 6px;
+    --r2: 10px;
+    --r3: 14px;
+    font-family: 'Georgia', 'Times New Roman', serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141412;
+      --surface: #1e1d1a;
+      --surface2: #252420;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #e8e6df;
+      --text-muted: #9b9a94;
+      --text-faint: #6b6960;
+      --accent: #4a9e6a;
+      --accent-light: #0e2118;
+      --accent-mid: #5ab87c;
+      --amber: #e8a832;
+      --amber-light: #1e1500;
+      --red: #e05a48;
+      --red-light: #1e0b08;
+      --blue: #5a8ec8;
+      --blue-light: #0a1828;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  /* Upload screen */
+  #upload-screen {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 2rem;
+    gap: 2rem;
+  }
+  .upload-logo { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+  .upload-title { font-size: 28px; font-weight: normal; text-align: center; max-width: 480px; line-height: 1.3; }
+  .upload-subtitle { font-size: 14px; color: var(--text-muted); text-align: center; max-width: 400px; }
+  .upload-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 520px; }
+  .upload-card {
+    background: var(--surface); border: 1.5px dashed var(--border-strong);
+    border-radius: var(--r3); padding: 1.5rem; text-align: center;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .upload-card:hover { border-color: var(--accent-mid); background: var(--accent-light); }
+  .upload-card.loaded { border-style: solid; border-color: var(--accent-mid); background: var(--accent-light); }
+  .upload-card-icon { font-size: 24px; margin-bottom: 8px; }
+  .upload-card-label { font-size: 13px; font-weight: 600; color: var(--text); font-family: 'Georgia', serif; }
+  .upload-card-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .upload-card-status { font-size: 11px; color: var(--accent-mid); margin-top: 6px; font-family: monospace; }
+  .upload-btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--r2); padding: 12px 32px; font-size: 14px;
+    font-family: 'Georgia', serif; cursor: pointer; opacity: 0.35;
+    transition: opacity 0.2s;
+  }
+  .upload-btn.ready { opacity: 1; }
+  .upload-btn.ready:hover { opacity: 0.85; }
+  .upload-divider { width: 100%; max-width: 520px; display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 12px; }
+  .upload-divider::before, .upload-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .use-sample-btn {
+    background: none; border: 1px solid var(--border-strong); color: var(--text-muted);
+    border-radius: var(--r2); padding: 10px 24px; font-size: 13px;
+    font-family: 'Georgia', serif; cursor: pointer;
+  }
+  .use-sample-btn:hover { background: var(--surface2); }
+
+  /* Dashboard layout */
+  #dashboard { display: none; min-height: 100vh; }
+  .dash-header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
+    height: 56px; position: sticky; top: 0; z-index: 10;
+  }
+  .dash-header-left { display: flex; align-items: baseline; gap: 16px; }
+  .dash-wordmark { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  .dash-portfolio-name { font-size: 15px; color: var(--text); }
+  .dash-header-right { display: flex; align-items: center; gap: 12px; }
+  .dash-year { font-size: 12px; color: var(--text-muted); background: var(--surface2); padding: 4px 10px; border-radius: 20px; }
+  .back-btn { background: none; border: 1px solid var(--border-strong); color: var(--text-muted); border-radius: var(--r1); padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: 'Georgia', serif; }
+  .back-btn:hover { background: var(--surface2); }
+
+  .dash-body { padding: 2rem; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 2rem; }
+
+  /* Section headers */
+  .section-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+
+  /* KPI bar */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r2); padding: 1.1rem 1.25rem;
+  }
+  .kpi-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; color: var(--text); line-height: 1; }
+  .kpi-unit { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+  .kpi-delta { font-size: 11px; margin-top: 6px; }
+  .kpi-card.accent { background: var(--accent); border-color: var(--accent); }
+  .kpi-card.accent .kpi-label, .kpi-card.accent .kpi-unit, .kpi-card.accent .kpi-value { color: #fff; }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* Panel */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r2); padding: 1.25rem;
+  }
+  .panel-title { font-size: 13px; color: var(--text); margin-bottom: 1rem; }
+  .panel-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 1rem; }
+
+  /* Scope bar */
+  .scope-bar-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .scope-row { display: flex; align-items: center; gap: 10px; }
+  .scope-name { font-size: 12px; color: var(--text-muted); width: 54px; flex-shrink: 0; }
+  .scope-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .scope-fill { height: 100%; border-radius: 4px; }
+  .scope-val { font-size: 12px; color: var(--text); width: 80px; text-align: right; flex-shrink: 0; }
+
+  /* Holdings table */
+  .holdings-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .holdings-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: normal; padding: 0 8px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  .holdings-table th:last-child, .holdings-table td:last-child { text-align: right; }
+  .holdings-table td { padding: 9px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .holdings-table tr:last-child td { border-bottom: none; }
+  .holdings-table tr:hover td { background: var(--surface2); }
+  .ac-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
+  .dq-pill { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+
+  /* Asset class chart legend */
+  .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* DQ gauge */
+  .dq-gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 1rem 0; }
+  .dq-score-big { font-size: 48px; line-height: 1; }
+  .dq-scale { display: flex; gap: 4px; }
+  .dq-pip { width: 28px; height: 6px; border-radius: 3px; }
+
+  /* Coverage bar */
+  .coverage-bar { height: 12px; background: var(--surface2); border-radius: 6px; overflow: hidden; margin: 6px 0; }
+  .coverage-fill { height: 100%; background: var(--accent-mid); border-radius: 6px; }
+
+  /* Tooltip */
+  .tooltip-wrap { position: relative; display: inline-block; cursor: default; }
+  .tooltip-wrap:hover .tooltip-box { display: block; }
+  .tooltip-box {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); background: var(--text); color: var(--bg);
+    font-size: 11px; padding: 5px 9px; border-radius: var(--r1); white-space: nowrap; z-index: 99;
+  }
+
+  /* What this means panel */
+  .insight-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .insight-row:last-child { border-bottom: none; }
+  .insight-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .insight-icon.warn { background: var(--amber-light); color: var(--amber); }
+  .insight-icon.ok { background: var(--accent-light); color: var(--accent-mid); }
+  .insight-icon.info { background: var(--blue-light); color: var(--blue); }
+  .insight-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .insight-text strong { color: var(--text); font-weight: 600; }
+  .insight-text span { color: var(--text-muted); }
+
+  /* Clickable table rows */
+  .holdings-table tbody tr { cursor: pointer; transition: background 0.1s; }
+  .holdings-table tbody tr:hover td { background: var(--accent-light); }
+  .holdings-table tbody tr.active td { background: var(--accent-light); border-left: 3px solid var(--accent-mid); }
+
+  /* Drawer overlay */
+  #drawer-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25);
+    z-index: 40; transition: opacity 0.2s;
+  }
+  #drawer-overlay.open { display: block; }
+
+  /* Drawer panel */
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw;
+    background: var(--surface); border-left: 1px solid var(--border);
+    z-index: 50; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column;
+  }
+  #drawer.open { transform: translateX(0); }
+
+  .drawer-header {
+    padding: 1.25rem 1.5rem 1rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    position: sticky; top: 0; background: var(--surface); z-index: 2;
+  }
+  .drawer-close {
+    background: none; border: 1px solid var(--border-strong); color: var(--text-muted);
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .drawer-close:hover { background: var(--surface2); }
+  .drawer-company { font-size: 17px; color: var(--text); line-height: 1.3; }
+  .drawer-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  .drawer-body { padding: 1.25rem 1.5rem; flex: 1; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .drawer-section-label {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-faint); margin-bottom: 10px;
+  }
+
+  /* Stat grid inside drawer */
+  .drawer-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .drawer-stat {
+    background: var(--surface2); border-radius: var(--r1); padding: 10px 12px;
+  }
+  .drawer-stat-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
+  .drawer-stat-value { font-size: 20px; color: var(--text); line-height: 1; }
+  .drawer-stat-unit { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  /* Scope breakdown in drawer */
+  .drawer-scope-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .drawer-scope-name { font-size: 11px; color: var(--text-muted); width: 52px; flex-shrink: 0; }
+  .drawer-scope-track { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .drawer-scope-fill { height: 100%; border-radius: 3px; }
+  .drawer-scope-vals { font-size: 11px; color: var(--text); text-align: right; flex-shrink: 0; width: 90px; }
+  .drawer-scope-method { font-size: 10px; color: var(--text-faint); margin-top: -6px; margin-bottom: 10px; padding-left: 62px; }
+
+  /* DQ per scope */
+  .drawer-dq-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .drawer-dq-row:last-child { border-bottom: none; }
+  .drawer-dq-label { color: var(--text-muted); }
+  .drawer-dq-right { display: flex; align-items: center; gap: 8px; }
+  .drawer-dq-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .drawer-dq-explain { font-size: 10px; color: var(--text-faint); }
+
+  /* AI insight box */
+  .drawer-ai-box {
+    background: var(--accent-light); border: 1px solid var(--border);
+    border-radius: var(--r2); padding: 1rem;
+  }
+  .drawer-ai-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-mid); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .drawer-ai-text { font-size: 13px; color: var(--text); line-height: 1.7; }
+  .drawer-ai-loading { font-size: 13px; color: var(--text-muted); font-style: italic; }
+
+  /* Engagement actions */
+  .drawer-action-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .drawer-action-row:last-child { border-bottom: none; }
+  .drawer-action-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+  .drawer-action-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .drawer-action-text strong { font-weight: 600; }
+
+  /* Portfolio share bar */
+  .portfolio-share-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+  .portfolio-share-fill { height: 100%; border-radius: 4px; background: var(--accent-mid); }
+
+  /* Responsive */
+  @media (max-width: 720px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .dash-body { padding: 1rem; }
+    #drawer { width: 100vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-logo">GHG Portfolio Analyzer</div>
+  <h1 class="upload-title">Financed Emissions Dashboard</h1>
+  <p class="upload-subtitle">Upload your portfolio and emissions CSV files to generate a PCAF-aligned report.</p>
+
+  <div class="upload-cards">
+    <div class="upload-card" id="portfolio-card" onclick="triggerFileInput('portfolio-file')">
+      <input type="file" accept=".csv" id="portfolio-file" style="display:none;" />
+      <div class="upload-card-icon">📋</div>
+      <div class="upload-card-label">Portfolio CSV</div>
+      <div class="upload-card-hint">holdings, asset classes, AUM</div>
+      <div class="upload-card-status" id="portfolio-status">Click to select file</div>
+    </div>
+    <div class="upload-card" id="emissions-card" onclick="triggerFileInput('emissions-file')">
+      <input type="file" accept=".csv" id="emissions-file" style="display:none;" />
+      <div class="upload-card-icon">🌿</div>
+      <div class="upload-card-label">Emissions CSV</div>
+      <div class="upload-card-hint">Scope 1/2/3, DQ scores</div>
+      <div class="upload-card-status" id="emissions-status">Click to select file</div>
+    </div>
+    <div class="upload-card" id="json-card" onclick="triggerFileInput('json-file')" style="grid-column:1/-1;max-width:260px;margin:0 auto;">
+      <input type="file" accept=".json" id="json-file" style="display:none;" />
+      <div class="upload-card-icon">📊</div>
+      <div class="upload-card-label">Report JSON <span style="font-size:10px;opacity:0.6;font-weight:normal;">(optional)</span></div>
+      <div class="upload-card-hint">from run_test.py — adds stress test & alignment panels</div>
+      <div class="upload-card-status" id="json-status">Click to select file</div>
+    </div>
+  </div>
+
+  <button class="upload-btn" id="run-btn" onclick="runDashboard()">Generate Report</button>
+
+  <div class="upload-divider">or</div>
+  <button class="use-sample-btn" onclick="useSampleData()">Use sample data</button>
+</div>
+
+<!-- COMPANY DRILL-DOWN DRAWER -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="drawer" role="dialog" aria-modal="true" aria-label="Company detail">
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-company" id="drawer-company-name">—</div>
+      <div class="drawer-sub" id="drawer-company-sub">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div>
+      <div class="drawer-section-label">Your exposure</div>
+      <div class="drawer-stat-grid">
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">Amount invested / lent</div>
+          <div class="drawer-stat-value" id="d-outstanding">—</div>
+          <div class="drawer-stat-unit">USD</div>
+        </div>
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">Attribution factor</div>
+          <div class="drawer-stat-value" id="d-attr">—</div>
+          <div class="drawer-stat-unit">of total company financing</div>
+        </div>
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">Your financed emissions</div>
+          <div class="drawer-stat-value" id="d-fe">—</div>
+          <div class="drawer-stat-unit">tCO₂e</div>
+        </div>
+        <div class="drawer-stat">
+          <div class="drawer-stat-label">Share of portfolio emissions</div>
+          <div class="drawer-stat-value" id="d-port-share">—</div>
+          <div class="drawer-stat-unit">of total financed emissions</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Share of total portfolio financed emissions</div>
+        <div class="portfolio-share-bar"><div class="portfolio-share-fill" id="d-share-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="drawer-section-label">Scope breakdown — company total (before attribution)</div>
+      <div id="d-scope-rows"></div>
+    </div>
+    <div>
+      <div class="drawer-section-label">Data quality per scope</div>
+      <div id="d-dq-rows"></div>
+    </div>
+    <div class="drawer-ai-box">
+      <div class="drawer-ai-label">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="currentColor"/><path d="M6 4v4M6 3v.5" stroke="currentColor" stroke-linecap="round"/></svg>
+        AI analysis
+      </div>
+      <div id="d-ai-text" class="drawer-ai-loading">Analysing holding…</div>
+    </div>
+    <div>
+      <div class="drawer-section-label">Suggested engagement actions</div>
+      <div id="d-actions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <header class="dash-header">
+    <div class="dash-header-left">
+      <span class="dash-wordmark">GHG Analyzer</span>
+      <span class="dash-portfolio-name" id="dash-portfolio-name">—</span>
+    </div>
+    <div class="dash-header-right">
+      <span class="dash-year" id="dash-year">—</span>
+      <button class="back-btn" onclick="goBack()">← New report</button>
+    </div>
+  </header>
+
+  <div class="dash-body">
+
+    <!-- KPIs -->
+    <div>
+      <div class="section-label">Portfolio overview</div>
+      <div class="kpi-grid">
+        <div class="kpi-card accent">
+          <div class="kpi-label">Total financed emissions</div>
+          <div class="kpi-value" id="kpi-total">—</div>
+          <div class="kpi-unit">tCO₂e</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">WACI</div>
+          <div class="kpi-value" id="kpi-waci">—</div>
+          <div class="kpi-unit">tCO₂e / $M revenue</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Economic intensity</div>
+          <div class="kpi-value" id="kpi-intensity">—</div>
+          <div class="kpi-unit">tCO₂e / $M AUM</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total AUM</div>
+          <div class="kpi-value" id="kpi-aum">—</div>
+          <div class="kpi-unit">USD</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scope breakdown + Asset class -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-title">Emissions by scope</div>
+        <div class="panel-sub">What part of the value chain are emissions coming from?</div>
+        <div class="scope-bar-wrap" id="scope-bars"></div>
+        <div style="position:relative;width:100%;height:180px;margin-top:1.25rem;">
+          <canvas id="scopeChart" role="img" aria-label="Donut chart showing financed emissions split by Scope 1, 2 and 3"></canvas>
+        </div>
+        <div id="scope-legend" style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Emissions by asset class</div>
+        <div class="panel-sub">Which lending / investment category drives the most emissions?</div>
+        <div style="position:relative;width:100%;height:220px;">
+          <canvas id="assetChart" role="img" aria-label="Horizontal bar chart showing financed emissions by asset class"></canvas>
+        </div>
+        <div id="asset-legend" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Top holdings + DQ -->
+    <div class="two-col">
+      <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-title">Top holdings by financed emissions</div>
+        <div class="panel-sub">The holdings responsible for the largest share of your portfolio's carbon footprint. Attribution factor = your loan or investment ÷ total company financing.</div>
+        <table class="holdings-table">
+          <thead>
+            <tr>
+              <th>Company / Asset</th>
+              <th>Asset class</th>
+              <th>Attribution</th>
+              <th>Scope 1+2</th>
+              <th>Scope 3</th>
+              <th>Total (tCO₂e)</th>
+              <th>DQ score</th>
+            </tr>
+          </thead>
+          <tbody id="holdings-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Data quality + Insights -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-title">Data quality</div>
+        <div class="panel-sub">PCAF scores 1 (audited data) to 5 (estimated). Lower is better.</div>
+
+        <div class="dq-gauge-wrap">
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.05em;">PORTFOLIO WEIGHTED DQ SCORE</div>
+          <div class="dq-score-big" id="dq-big">—</div>
+          <div style="font-size:11px;color:var(--text-muted);">out of 5</div>
+          <div class="dq-scale" id="dq-pips"></div>
+          <div style="display:flex;justify-content:space-between;width:160px;font-size:10px;color:var(--text-faint);margin-top:2px;">
+            <span>Verified</span><span>Estimated</span>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px;">
+            <span>AUM coverage</span>
+            <span id="coverage-pct">—</span>
+          </div>
+          <div class="coverage-bar"><div class="coverage-fill" id="coverage-fill" style="width:0%"></div></div>
+          <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Holdings with emissions data matched</div>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+            <span style="color:var(--text-muted);">Reported / audited (DQ 1–2)</span>
+            <span id="pct-reported" style="color:var(--text);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;">
+            <span style="color:var(--text-muted);">Estimated / proxy (DQ 4–5)</span>
+            <span id="pct-estimated" style="color:var(--text);">—</span>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;position:relative;width:100%;height:160px;">
+          <canvas id="dqChart" role="img" aria-label="Bar chart showing distribution of data quality scores across holdings"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">What this means</div>
+        <div class="panel-sub">Plain-language interpretation of your portfolio's climate footprint.</div>
+        <div id="insights-list"></div>
+      </div>
+    </div>
+
+    <!-- Sector breakdown -->
+    <div class="panel">
+      <div class="panel-title">Emissions by sector</div>
+      <div class="panel-sub">Which GICS sectors are driving financed emissions? Helps identify where engagement or divestment would have most impact.</div>
+      <div style="position:relative;width:100%;height:260px;">
+        <canvas id="sectorChart" role="img" aria-label="Bar chart of financed emissions broken down by GICS sector"></canvas>
+      </div>
+
+    <!-- Stress test panel (shown only when JSON loaded) -->
+    <div id="stress-section" style="display:none;">
+      <div style="margin-top:2rem;">
+        <div class="section-label">Transition risk — carbon price stress test</div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-title">Carbon cost by scenario (2030)</div>
+            <div class="panel-sub">Implied annual carbon cost = your attributed Scope 1+2 × NGFS carbon price.</div>
+            <div style="position:relative;width:100%;height:200px;">
+              <canvas id="stressChart"></canvas>
+            </div>
+            <div id="stress-scenario-table" style="margin-top:1rem;font-size:12px;"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">High-risk holdings</div>
+            <div class="panel-sub">Carbon cost exceeds 5% of entity revenue under at least one scenario.</div>
+            <div id="stress-high-risk"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-title">Carbon cost by asset class — Orderly scenario</div>
+          <div class="panel-sub">Where is carbon pricing risk concentrated in your portfolio?</div>
+          <div style="position:relative;width:100%;height:220px;">
+            <canvas id="stressAssetChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alignment panel (shown only when JSON loaded) -->
+    <div id="alignment-section" style="display:none;">
+      <div style="margin-top:2rem;">
+        <div class="section-label">SBTi 1.5°C pathway alignment</div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-title">Implied temperature score</div>
+            <div class="panel-sub">All three methodology options shown side by side.</div>
+            <div id="temp-score-rows" style="margin-top:0.5rem;"></div>
+            <div style="margin-top:1.25rem;">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">AUM ALIGNMENT BREAKDOWN</div>
+              <div id="alignment-bars"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Holdings alignment detail</div>
+            <div class="panel-sub">Sorted by misalignment severity. Click a row to open the holding detail.</div>
+            <div id="alignment-table"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div>
+
+    <div style="font-size:11px;color:var(--text-faint);text-align:center;padding-bottom:2rem;">
+      PCAF Global GHG Accounting &amp; Reporting Standard (2022) · GFANZ Transition Finance Metrics (2023) · Generated by GHG Portfolio Analyzer
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── Colour palette ─── */
+const COLORS = {
+  s1: '#2d6b47', s2: '#5ab87c', s3: '#b8dfc8',
+  ac: ['#1a3a2a','#2d6b47','#5ab87c','#8fcfaa','#b8dfc8','#d4eedf','#e9f7ef'],
+  dq: ['#2d6b47','#5ab87c','#e8a832','#d87a30','#b03a2a'],
+  sector: '#2d6b47',
+};
+
+/* ─── Formatters ─── */
+const fmt = n => n == null ? '—' : Math.abs(n) >= 1e6
+  ? (n/1e6).toFixed(1) + 'M'
+  : Math.abs(n) >= 1e3
+    ? (n/1e3).toFixed(0) + 'k'
+    : Math.round(n).toLocaleString();
+
+const fmtBig = n => n == null ? '—' : Math.abs(n) >= 1e9
+  ? '$' + (n/1e9).toFixed(1) + 'B'
+  : Math.abs(n) >= 1e6
+    ? '$' + (n/1e6).toFixed(0) + 'M'
+    : '$' + (n/1e3).toFixed(0) + 'k';
+
+const pct = n => n == null ? '—' : (n*100).toFixed(1) + '%';
+
+/* ─── State ─── */
+let portfolioData = null, emissionsData = null, jsonReportData = null;
+
+/* ─── File upload handlers ─── */
+function checkReady() {
+  const btn = document.getElementById('run-btn');
+  if (portfolioData && emissionsData) btn.classList.add('ready');
+}
+
+function triggerFileInput(inputId) {
+  document.getElementById(inputId).click();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('json-file').addEventListener('change', function(e) {
+    const f = e.target.files[0]; if (!f) return;
+    document.getElementById('json-status').textContent = f.name;
+    document.getElementById('json-card').classList.add('loaded');
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        jsonReportData = JSON.parse(ev.target.result);
+      } catch(err) {
+        document.getElementById('json-status').textContent = 'Invalid JSON file';
+      }
+    };
+    reader.readAsText(f);
+  });
+
+  document.getElementById('portfolio-file').addEventListener('change', function(e) {get.files[0]; if (!f) return;
+    document.getElementById('portfolio-status').textContent = f.name;
+    document.getElementById('portfolio-card').classList.add('loaded');
+    Papa.parse(f, { header:true, skipEmptyLines:true, complete: function(r) { portfolioData = r.data; checkReady(); } });
+  });
+
+  document.getElementById('emissions-file').addEventListener('change', function(e) {
+    const f = e.target.files[0]; if (!f) return;
+    document.getElementById('emissions-status').textContent = f.name;
+    document.getElementById('emissions-card').classList.add('loaded');
+    Papa.parse(f, { header:true, skipEmptyLines:true, complete: function(r) { emissionsData = r.data; checkReady(); } });
+  });
+});
+
+/* ─── Sample data (mirrors the project's CSVs) ─── */
+function useSampleData() {
+  const pCsv = `holding_id,portfolio_id,entity_name,entity_id,asset_class,outstanding_amount_usd,reporting_date,isin,country_iso3,evic_usd,total_equity_debt_usd,total_project_value_usd,collateral_value_usd,government_revenue_usd
+H001,PORT_ALPHA,TotalEnergies SE,FR0014000MR3,listed_equity_and_corporate_bonds,12500000,2023-12-31,FR0014000MR3,FRA,145000000000,,,,
+H002,PORT_ALPHA,Volkswagen AG,DE0007664039,listed_equity_and_corporate_bonds,8200000,2023-12-31,DE0007664039,DEU,72000000000,,,,
+H003,PORT_ALPHA,Microsoft Corporation,US5949181045,listed_equity_and_corporate_bonds,15000000,2023-12-31,US5949181045,USA,2800000000000,,,,
+H004,PORT_ALPHA,Tata Steel Ltd,INE081A01012,listed_equity_and_corporate_bonds,4500000,2023-12-31,INE081A01012,IND,18000000000,,,,
+H005,PORT_ALPHA,Enel SpA,IT0003128367,listed_equity_and_corporate_bonds,6800000,2023-12-31,IT0003128367,ITA,55000000000,,,,
+H006,PORT_ALPHA,GreenBuild SME (Private),GreenBuild_SME,business_loans_and_unlisted_equity,3000000,2023-12-31,,GBR,,22000000,,,
+H007,PORT_ALPHA,AgriCorp Unlisted,AgriCorp_Unlisted,business_loans_and_unlisted_equity,1800000,2023-12-31,,BRA,,9500000,,,
+H008,PORT_ALPHA,Solar Farm Alpha,SolarFarm_Alpha,project_finance,20000000,2023-12-31,,ESP,,,85000000,,
+H009,PORT_ALPHA,Offshore Wind Beta,OffshoreWind_Beta,project_finance,35000000,2023-12-31,,GBR,,,220000000,,
+H010,PORT_ALPHA,City Centre Office Block,CityOffice_DE,commercial_real_estate,9000000,2023-12-31,,DEU,,,42000000,,
+H011,PORT_ALPHA,Industrial Warehouse Park,Warehouse_PL,commercial_real_estate,5500000,2023-12-31,,POL,,,18500000,,
+H012,PORT_ALPHA,Residential Mortgage Pool A,MortgagePool_A,mortgages,7200000,2023-12-31,,GBR,,,,6800000,
+H013,PORT_ALPHA,Residential Mortgage Pool B,MortgagePool_B,mortgages,4100000,2023-12-31,,FRA,,,,3900000,
+H014,PORT_ALPHA,Fleet Vehicles Leasing Co,FleetVehicles,motor_vehicle_loans,2200000,2023-12-31,,DEU,,,,1950000,
+H015,PORT_ALPHA,Electric Van Fleet Ltd,EVFleet_NL,motor_vehicle_loans,1500000,2023-12-31,,NLD,,,,1400000,
+H016,PORT_ALPHA,Germany Federal Republic,DE0001102580,sovereign_debt,25000000,2023-12-31,DE0001102580,DEU,,,,,1890000000000
+H017,PORT_ALPHA,Republic of Brazil,Brazil_BRA,sovereign_debt,10000000,2023-12-31,,BRA,,,,,2100000000000
+H018,PORT_ALPHA,Republic of India,India_IND,sovereign_debt,8000000,2023-12-31,,IND,,,,,3500000000000`;
+
+  const eCsv = `entity_id,reporting_year,scope_1_emissions,scope_2_emissions,scope_3_upstream,scope_3_downstream,scope_1_dq_score,scope_2_dq_score,scope_3_dq_score,scope_1_method,scope_2_method,scope_3_method,revenue_usd,evic_usd,total_equity_debt_usd,gics_sector,gics_industry_group,nace_code,country_iso3
+FR0014000MR3,2022,35200000,1800000,12500000,455000000,1,1,2,reported_verified,reported_verified,reported_unaudited,218000000000,145000000000,,Energy,Oil Gas & Consumable Fuels,B06,FRA
+DE0007664039,2022,2850000,420000,3200000,52000000,1,2,3,reported_verified,reported_unaudited,sector_intensity_revenue,293000000000,72000000000,,Consumer Discretionary,Automobiles & Components,C29,DEU
+US5949181045,2022,118000,285000,3900000,8200000,2,1,3,reported_unaudited,reported_verified,sector_intensity_revenue,212000000000,2800000000000,,Information Technology,Software & Services,J62,USA
+INE081A01012,2022,18500000,2100000,8800000,4200000,2,2,4,reported_unaudited,reported_unaudited,regional_proxy,22000000000,18000000000,,Materials,Metals & Mining,C24,IND
+IT0003128367,2022,12000000,890000,2100000,18000000,1,1,2,reported_verified,reported_verified,reported_unaudited,93000000000,55000000000,,Utilities,Electric Utilities,D35,ITA
+GreenBuild_SME,2022,850000,210000,420000,,3,3,4,sector_intensity_revenue,sector_intensity_revenue,regional_proxy,14000000,,22000000,Industrials,Construction & Engineering,F41,GBR
+AgriCorp_Unlisted,2022,1200000,85000,3400000,1800000,4,4,5,regional_proxy,regional_proxy,estimated,6500000,,9500000,Consumer Staples,Food Products,A01,BRA
+SolarFarm_Alpha,2022,4200,18000,95000,,2,1,3,reported_unaudited,reported_verified,sector_intensity_revenue,,,85000000,Utilities,Renewable Electricity,D35,ESP
+OffshoreWind_Beta,2022,8500,42000,280000,,2,2,3,reported_unaudited,reported_unaudited,sector_intensity_revenue,,,220000000,Utilities,Renewable Electricity,D35,GBR
+CityOffice_DE,2022,720000,185000,,,3,3,,sector_intensity_revenue,sector_intensity_revenue,,,,42000000,Real Estate,Real Estate Management,L68,DEU
+Warehouse_PL,2022,380000,95000,,,4,4,,regional_proxy,regional_proxy,,,,18500000,Real Estate,Industrial REITs,L68,POL
+MortgagePool_A,2022,,,,,,,5,,,,,,6800000,,,L68,GBR
+MortgagePool_B,2022,,,,,,,5,,,,,,3900000,,,L68,FRA
+FleetVehicles,2022,185000,42000,320000,,3,3,4,sector_intensity_revenue,sector_intensity_revenue,regional_proxy,95000000,,1950000,Industrials,Transportation,N77,DEU
+EVFleet_NL,2022,12000,8500,95000,,2,2,3,reported_unaudited,reported_unaudited,sector_intensity_revenue,42000000,,1400000,Industrials,Transportation,N77,NLD
+DE0001102580,2022,646000000,92000000,,,1,2,,reported_verified,reported_unaudited,,4430000000000,,,,,O84,DEU
+Brazil_BRA,2022,1040000000,185000000,,,2,3,,reported_unaudited,sector_intensity_revenue,,1920000000000,,,,,O84,BRA
+India_IND,2022,2620000000,380000000,,,2,3,,reported_unaudited,sector_intensity_revenue,,3385000000000,,,,,O84,IND`;
+
+  portfolioData = Papa.parse(pCsv, { header:true, skipEmptyLines:true }).data;
+  emissionsData = Papa.parse(eCsv, { header:true, skipEmptyLines:true }).data;
+
+  // Load sample JSON report data so stress test & alignment panels appear
+  jsonReportData = {
+    meta: { portfolio_id: "PORT_ALPHA", reporting_year: 2022 },
+    stress_test: {
+      net_zero_2050_orderly: {
+        scenario_label: "Orderly (Net Zero 2050)", horizon_year: 2030,
+        carbon_price_usd_per_tco2e: 108, total_carbon_cost_usd: 109800000,
+        n_high_risk: 4, n_medium_risk: 2, n_low_risk: 6, n_no_data: 6,
+        high_risk_aum_pct: 0.027, has_sovereign_debt: true,
+        by_asset_class: {
+          "business_loans_and_unlisted_equity": { carbon_cost_usd: 41910000, aum_usd: 4800000, revenue_usd: 20500000, n_holdings: 2, n_high_risk: 2, pct_revenue: 2.044 },
+          "commercial_real_estate":             { carbon_cost_usd: 36200000, aum_usd: 14500000, revenue_usd: 0, n_holdings: 2, n_high_risk: 0, pct_revenue: null },
+          "motor_vehicle_loans":                { carbon_cost_usd: 26730000, aum_usd: 3700000, revenue_usd: 137000000, n_holdings: 2, n_high_risk: 2, pct_revenue: 0.195 },
+          "sovereign_debt":                     { carbon_cost_usd: 2420000, aum_usd: 43000000, revenue_usd: 11330000000000, n_holdings: 3, n_high_risk: 0, pct_revenue: 0.000 },
+          "project_finance":                    { carbon_cost_usd: 1430000, aum_usd: 55000000, revenue_usd: 0, n_holdings: 2, n_high_risk: 0, pct_revenue: null },
+          "listed_equity_and_corporate_bonds":  { carbon_cost_usd: 1110000, aum_usd: 47000000, revenue_usd: 838000000000, n_holdings: 5, n_high_risk: 0, pct_revenue: 0.000 },
+        },
+        high_risk_holdings: [
+          { holding_id:"H007", entity_name:"AgriCorp Unlisted",         carbon_cost_pct_revenue: 4.045, implied_carbon_cost_usd: 26293500 },
+          { holding_id:"H006", entity_name:"GreenBuild SME (Private)",  carbon_cost_pct_revenue: 1.115, implied_carbon_cost_usd: 15610000 },
+          { holding_id:"H014", entity_name:"Fleet Vehicles Leasing Co", carbon_cost_pct_revenue: 0.258, implied_carbon_cost_usd: 19926000 },
+          { holding_id:"H015", entity_name:"Electric Van Fleet Ltd",    carbon_cost_pct_revenue: 0.053, implied_carbon_cost_usd: 2160000 },
+        ],
+      },
+      delayed_transition_disorderly: {
+        scenario_label: "Disorderly (Delayed Transition)", horizon_year: 2030,
+        carbon_price_usd_per_tco2e: 60, total_carbon_cost_usd: 61000000,
+        n_high_risk: 3, n_medium_risk: 3, n_low_risk: 6, n_no_data: 6,
+        has_sovereign_debt: true, by_asset_class: {}, high_risk_holdings: [],
+      },
+      current_policies_hot_house: {
+        scenario_label: "Hot House World (Current Policies)", horizon_year: 2030,
+        carbon_price_usd_per_tco2e: 13, total_carbon_cost_usd: 13200000,
+        n_high_risk: 2, n_medium_risk: 2, n_low_risk: 8, n_no_data: 6,
+        has_sovereign_debt: true, by_asset_class: {}, high_risk_holdings: [],
+      },
+    },
+    pathway_alignment: {
+      assessment_year: 2022, target_year: 2030,
+      temperature_method: "overshoot_cap", overshoot_cap_used: 10, winsorise_pct_used: 0.95,
+      implied_temperature_no_cap: 7.5, implied_temperature_capped: 1.5,
+      implied_temperature_winsorised: 7.5, implied_temperature_primary: 1.5,
+      pct_aum_aligned: 0.0, pct_aum_ahead_of_path: 0.41,
+      pct_aum_misaligned: 0.139, pct_aum_no_data: 0.451,
+      total_financed_gap_tco2e: 512886,
+      top_misaligned: ["AgriCorp Unlisted","GreenBuild SME (Private)","Fleet Vehicles Leasing Co","Republic of India","Republic of Brazil"],
+      holdings: [
+        { holding_id:"H007", entity_name:"AgriCorp Unlisted",          sector:"Consumer Staples",       alignment_status:"misaligned",    intensity_gap_pct: 238.34, required_annual_reduction_pct: 0.496, financed_gap_tco2e: 498200 },
+        { holding_id:"H006", entity_name:"GreenBuild SME (Private)",   sector:"Industrials",            alignment_status:"misaligned",    intensity_gap_pct: 68.18,  required_annual_reduction_pct: 0.411, financed_gap_tco2e: 12800 },
+        { holding_id:"H014", entity_name:"Fleet Vehicles Leasing Co",  sector:"Industrials",            alignment_status:"misaligned",    intensity_gap_pct: 1.18,   required_annual_reduction_pct: 0.093, financed_gap_tco2e: 1480 },
+        { holding_id:"H017", entity_name:"Republic of India",          sector:"Government",             alignment_status:"misaligned",    intensity_gap_pct: 0.93,   required_annual_reduction_pct: 0.079, financed_gap_tco2e: 406 },
+        { holding_id:"H018", entity_name:"Republic of Brazil",         sector:"Government",             alignment_status:"misaligned",    intensity_gap_pct: 0.39,   required_annual_reduction_pct: 0.04,  financed_gap_tco2e: null },
+        { holding_id:"H008", entity_name:"Solar Farm Alpha",           sector:"Utilities",              alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H009", entity_name:"Offshore Wind Beta",         sector:"Utilities",              alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H010", entity_name:"City Centre Office Block",   sector:"Real Estate",            alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H011", entity_name:"Industrial Warehouse Park",  sector:"Real Estate",            alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H012", entity_name:"Residential Mortgage Pool A",sector:"Real Estate",            alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H013", entity_name:"Residential Mortgage Pool B",sector:"Real Estate",            alignment_status:"no_data",       intensity_gap_pct: null,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H003", entity_name:"Microsoft Corporation",      sector:"Information Technology", alignment_status:"ahead_of_path", intensity_gap_pct:-0.99,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H016", entity_name:"Germany Federal Republic",   sector:"Government",             alignment_status:"ahead_of_path", intensity_gap_pct:-0.64,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H015", entity_name:"Electric Van Fleet Ltd",     sector:"Industrials",            alignment_status:"ahead_of_path", intensity_gap_pct:-0.55,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H002", entity_name:"Volkswagen AG",              sector:"Consumer Discretionary", alignment_status:"ahead_of_path", intensity_gap_pct:-0.98,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H004", entity_name:"Tata Steel Ltd",             sector:"Materials",              alignment_status:"ahead_of_path", intensity_gap_pct:-0.67,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H005", entity_name:"Enel SpA",                   sector:"Utilities",              alignment_status:"ahead_of_path", intensity_gap_pct:-0.94,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+        { holding_id:"H001", entity_name:"TotalEnergies SE",           sector:"Energy",                 alignment_status:"ahead_of_path", intensity_gap_pct:-0.96,   required_annual_reduction_pct: null,  financed_gap_tco2e: null },
+      ],
+    },
+  };
+
+  document.getElementById('portfolio-status').textContent = 'sample_portfolio.csv';
+  document.getElementById('emissions-status').textContent = 'sample_emissions.csv';
+  document.getElementById('json-status').textContent = 'sample_report.json';
+  document.getElementById('portfolio-card').classList.add('loaded');
+  document.getElementById('emissions-card').classList.add('loaded');
+  document.getElementById('json-card').classList.add('loaded');
+  document.getElementById('run-btn').classList.add('ready');
+  runDashboard();
+}
+
+/* ─── PCAF computation engine ─── */
+function computePCAF(portfolio, emissions) {
+  const eMap = {};
+  emissions.forEach(r => { if (r.entity_id) eMap[r.entity_id.trim()] = r; });
+
+  const DENOM_COL = {
+    'listed_equity_and_corporate_bonds': 'evic_usd',
+    'business_loans_and_unlisted_equity': 'total_equity_debt_usd',
+    'project_finance': 'total_project_value_usd',
+    'commercial_real_estate': 'total_project_value_usd',
+    'mortgages': 'collateral_value_usd',
+    'motor_vehicle_loans': 'collateral_value_usd',
+    'sovereign_debt': 'government_revenue_usd',
+  };
+
+  const f = v => { const n = parseFloat(v); return isNaN(n) || n < 0 ? null : n; };
+
+  let totalAUM = 0;
+  portfolio.forEach(h => { totalAUM += f(h.outstanding_amount_usd) || 0; });
+
+  const holdings = [];
+
+  portfolio.forEach(h => {
+    const outstanding = f(h.outstanding_amount_usd);
+    if (!outstanding) return;
+
+    const eid = (h.entity_id || h.isin || h.holding_id || '').trim();
+    const rec = eMap[eid];
+
+    const denomCol = DENOM_COL[h.asset_class];
+    // For denominator, check portfolio row first, then emissions record
+    let denomVal = denomCol ? (f(h[denomCol]) || (rec ? f(rec[denomCol]) : null)) : null;
+
+    let attrFactor = null;
+    if (denomVal && denomVal > 0) {
+      attrFactor = Math.min(1.0, outstanding / denomVal);
+    }
+
+    let s1 = null, s2 = null, s3 = null;
+    let dqScore = null;
+    let revenue = null;
+
+    if (rec) {
+      const rs1 = f(rec.scope_1_emissions), rs2 = f(rec.scope_2_emissions);
+      const rs3u = f(rec.scope_3_upstream), rs3d = f(rec.scope_3_downstream);
+      const rs3 = (rs3u != null || rs3d != null) ? (rs3u||0)+(rs3d||0) : null;
+
+      if (attrFactor != null) {
+        s1 = rs1 != null ? attrFactor * rs1 : null;
+        s2 = rs2 != null ? attrFactor * rs2 : null;
+        s3 = rs3 != null ? attrFactor * rs3 : null;
+      }
+
+      // Weighted DQ score
+      const dq1 = f(rec.scope_1_dq_score), dq2 = f(rec.scope_2_dq_score), dq3 = f(rec.scope_3_dq_score);
+      const dqPairs = [[rs1,dq1],[rs2,dq2],[rs3,dq3]].filter(([e,d]) => e!=null && d!=null && e>0);
+      if (dqPairs.length) {
+        const wSum = dqPairs.reduce((a,[e])=>a+e,0);
+        dqScore = dqPairs.reduce((a,[e,d])=>a+e*d,0) / wSum;
+      } else if (dq1||dq2||dq3) {
+        const ds = [dq1,dq2,dq3].filter(d=>d!=null);
+        dqScore = ds.reduce((a,b)=>a+b,0)/ds.length;
+      }
+
+      revenue = f(rec.revenue_usd);
+    }
+
+    const total = [s1,s2,s3].filter(v=>v!=null).reduce((a,b)=>a+b,0) || null;
+    const s12 = [s1,s2].filter(v=>v!=null).reduce((a,b)=>a+b,0) || null;
+
+    let waci = null;
+    const entityTotal = rec ? [f(rec.scope_1_emissions),f(rec.scope_2_emissions)].filter(v=>v!=null).reduce((a,b)=>a+b,0) : 0;
+    if (revenue && revenue > 0 && entityTotal > 0) {
+      waci = (outstanding / totalAUM) * (entityTotal / (revenue / 1e6));
+    }
+
+    holdings.push({
+      holding_id: h.holding_id,
+      entity_name: h.entity_name || h.entity_id,
+      asset_class: h.asset_class,
+      outstanding,
+      attrFactor,
+      financed_s1: s1, financed_s2: s2, financed_s3: s3,
+      financed_s12: s12,
+      financed_total: total,
+      dqScore,
+      waciContrib: waci,
+      country: h.country_iso3,
+      sector: rec ? rec.gics_sector : null,
+      rec_found: !!rec,
+    });
+  });
+
+  // Aggregates
+  const withEmissions = holdings.filter(h => h.financed_total != null);
+  const totalFE = withEmissions.reduce((a,h)=>a+(h.financed_total||0),0);
+  const totalS1 = withEmissions.reduce((a,h)=>a+(h.financed_s1||0),0);
+  const totalS2 = withEmissions.reduce((a,h)=>a+(h.financed_s2||0),0);
+  const totalS3 = withEmissions.reduce((a,h)=>a+(h.financed_s3||0),0);
+  const waci = holdings.reduce((a,h)=>a+(h.waciContrib||0),0) || null;
+  const aumWithData = withEmissions.reduce((a,h)=>a+h.outstanding,0);
+
+  // Portfolio DQ (emissions-weighted)
+  const dqW = withEmissions.filter(h=>h.dqScore!=null&&h.financed_total>0);
+  const dqWSum = dqW.reduce((a,h)=>a+h.financed_total,0);
+  const portDQ = dqWSum > 0 ? dqW.reduce((a,h)=>a+h.financed_total*h.dqScore,0)/dqWSum : null;
+
+  // By asset class
+  const byAC = {};
+  holdings.forEach(h => {
+    if (!byAC[h.asset_class]) byAC[h.asset_class] = { aum:0, fe:0, n:0 };
+    byAC[h.asset_class].aum += h.outstanding;
+    byAC[h.asset_class].fe += h.financed_total||0;
+    byAC[h.asset_class].n++;
+  });
+
+  // By sector
+  const bySector = {};
+  holdings.forEach(h => {
+    const s = h.sector || 'Unknown';
+    if (!bySector[s]) bySector[s] = 0;
+    bySector[s] += h.financed_total||0;
+  });
+
+  // DQ distribution
+  const dqDist = [0,0,0,0,0];
+  holdings.forEach(h => {
+    if (h.dqScore != null) {
+      const idx = Math.min(4, Math.round(h.dqScore)-1);
+      dqDist[Math.max(0,idx)]++;
+    }
+  });
+
+  const pctReported = holdings.filter(h=>h.dqScore!=null&&h.dqScore<=2).length / holdings.length;
+  const pctEstimated = holdings.filter(h=>h.dqScore!=null&&h.dqScore>=4).length / holdings.length;
+
+  return {
+    totalAUM, totalFE, totalS1, totalS2, totalS3,
+    waci, econ: totalAUM > 0 ? totalFE/(totalAUM/1e6) : null,
+    portDQ, dqDist,
+    aum_coverage: totalAUM > 0 ? aumWithData/totalAUM : 0,
+    pctReported, pctEstimated,
+    holdings, byAC, bySector,
+    n_total: holdings.length,
+    n_with: withEmissions.length,
+  };
+}
+
+/* ─── Render dashboard ─── */
+let charts = {};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  charts = {};
+}
+
+function runDashboard() {
+  if (!portfolioData || !emissionsData) return;
+  destroyCharts();
+  const data = computePCAF(portfolioData, emissionsData);
+  currentPortfolioResult = data;
+  renderDashboard(data);
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+function goBack() {
+  closeDrawer();
+  destroyCharts();
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+}
+
+function renderDashboard(d) {
+  // Header
+  const pid = portfolioData[0]?.portfolio_id || 'Portfolio';
+  document.getElementById('dash-portfolio-name').textContent = pid;
+  const year = emissionsData[0]?.reporting_year || '—';
+  document.getElementById('dash-year').textContent = `Reporting year: ${year}`;
+
+  // KPIs
+  document.getElementById('kpi-total').textContent = fmt(d.totalFE);
+  document.getElementById('kpi-waci').textContent = d.waci ? d.waci.toFixed(1) : '—';
+  document.getElementById('kpi-intensity').textContent = d.econ ? d.econ.toFixed(1) : '—';
+  document.getElementById('kpi-aum').textContent = fmtBig(d.totalAUM);
+
+  // Scope bars
+  const maxScope = Math.max(d.totalS1, d.totalS2, d.totalS3, 1);
+  const scopeData = [
+    { label: 'Scope 1', val: d.totalS1, color: COLORS.s1 },
+    { label: 'Scope 2', val: d.totalS2, color: COLORS.s2 },
+    { label: 'Scope 3', val: d.totalS3, color: COLORS.s3 },
+  ];
+  document.getElementById('scope-bars').innerHTML = scopeData.map(s => `
+    <div class="scope-row">
+      <span class="scope-name">${s.label}</span>
+      <div class="scope-track">
+        <div class="scope-fill" style="width:${(s.val/maxScope*100).toFixed(1)}%;background:${s.color}"></div>
+      </div>
+      <span class="scope-val">${fmt(s.val)} t</span>
+    </div>
+  `).join('');
+
+  // Scope donut
+  charts.scope = new Chart(document.getElementById('scopeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Scope 1','Scope 2','Scope 3'],
+      datasets: [{ data: [d.totalS1, d.totalS2, d.totalS3], backgroundColor: [COLORS.s1, COLORS.s2, COLORS.s3], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+  const total = d.totalFE || 1;
+  document.getElementById('scope-legend').innerHTML = scopeData.map((s,i) => `
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;"></span>
+      ${s.label} ${((s.val/total)*100).toFixed(0)}%
+    </span>
+  `).join('');
+
+  // Asset class horizontal bar
+  const acLabels = Object.keys(d.byAC).map(k => k.replace(/_/g,' '));
+  const acVals = Object.values(d.byAC).map(v => Math.round(v.fe));
+  const acPairs = acLabels.map((l,i)=>({l,v:acVals[i]})).sort((a,b)=>b.v-a.v);
+  const barH = Math.max(220, acPairs.length * 42 + 60);
+  document.getElementById('assetChart').parentElement.style.height = barH + 'px';
+  charts.asset = new Chart(document.getElementById('assetChart'), {
+    type: 'bar',
+    data: {
+      labels: acPairs.map(p=>p.l),
+      datasets: [{ data: acPairs.map(p=>p.v), backgroundColor: COLORS.ac, borderWidth: 0 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { size: 11 }, callback: v => fmt(v) }, grid: { color: 'rgba(128,128,128,0.1)' } },
+        y: { ticks: { color: '#888', font: { size: 11 }, autoSkip: false } }
+      }
+    }
+  });
+
+  // Holdings table
+  const sorted = [...d.holdings].filter(h=>h.financed_total!=null).sort((a,b)=>(b.financed_total||0)-(a.financed_total||0));
+  const AC_SHORT = {
+    'listed_equity_and_corporate_bonds': 'Listed equity',
+    'business_loans_and_unlisted_equity': 'Business loan',
+    'project_finance': 'Project finance',
+    'commercial_real_estate': 'Commercial RE',
+    'mortgages': 'Mortgages',
+    'motor_vehicle_loans': 'Motor vehicles',
+    'sovereign_debt': 'Sovereign debt',
+  };
+  const DQ_BG = ['#e4efe8','#c8dfd1','#fdf3e0','#fde8d5','#fbeae7'];
+  const DQ_COL = ['#1a4a2a','#1a4a2a','#7a4a00','#7a2a00','#5a1a10'];
+
+  document.getElementById('holdings-tbody').innerHTML = sorted.map((h,i) => {
+    const dq = h.dqScore != null ? h.dqScore.toFixed(1) : '—';
+    const dqIdx = h.dqScore != null ? Math.min(4,Math.round(h.dqScore)-1) : 2;
+    const af = h.attrFactor != null ? (h.attrFactor*100).toFixed(2)+'%' : '—';
+    return `<tr onclick="openDrawer('${h.holding_id}')" data-id="${h.holding_id}">
+      <td style="font-weight:500;">${h.entity_name}</td>
+      <td><span class="ac-badge" style="background:var(--surface2);color:var(--text-muted);">${AC_SHORT[h.asset_class]||h.asset_class}</span></td>
+      <td>${af}</td>
+      <td>${fmt(h.financed_s12)}</td>
+      <td>${fmt(h.financed_s3)}</td>
+      <td style="font-weight:500;">${fmt(h.financed_total)}</td>
+      <td><span class="dq-pill" style="background:${DQ_BG[dqIdx]};color:${DQ_COL[dqIdx]};">${dq}</span></td>
+    </tr>`;
+  }).join('');
+
+  // DQ section
+  const dqStr = d.portDQ != null ? d.portDQ.toFixed(2) : '—';
+  document.getElementById('dq-big').textContent = dqStr;
+  const dqScore = d.portDQ || 1;
+  const dqColor = dqScore <= 2 ? '#2d6b47' : dqScore <= 3 ? '#e8a832' : '#b03a2a';
+  document.getElementById('dq-big').style.color = dqColor;
+
+  document.getElementById('dq-pips').innerHTML = [1,2,3,4,5].map(i => {
+    const active = i <= Math.round(dqScore);
+    return `<div class="dq-pip" style="background:${active ? COLORS.dq[i-1] : 'var(--surface2)'}"></div>`;
+  }).join('');
+
+  document.getElementById('coverage-pct').textContent = pct(d.aum_coverage);
+  document.getElementById('coverage-fill').style.width = (d.aum_coverage*100).toFixed(1)+'%';
+  document.getElementById('pct-reported').textContent = pct(d.pctReported) + ' of holdings';
+  document.getElementById('pct-estimated').textContent = pct(d.pctEstimated) + ' of holdings';
+
+  // DQ distribution bar
+  charts.dq = new Chart(document.getElementById('dqChart'), {
+    type: 'bar',
+    data: {
+      labels: ['DQ 1\nVerified','DQ 2\nReported','DQ 3\nSector avg','DQ 4\nRegional','DQ 5\nEstimated'],
+      datasets: [{ data: d.dqDist, backgroundColor: COLORS.dq, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#888', font: { size: 11 }, stepSize: 1 }, grid: { color: 'rgba(128,128,128,0.1)' } }
+      }
+    }
+  });
+
+  // Sector chart
+  const sectors = Object.entries(d.bySector).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const sH = Math.max(200, sectors.length * 38 + 60);
+  document.getElementById('sectorChart').parentElement.style.height = sH + 'px';
+  charts.sector = new Chart(document.getElementById('sectorChart'), {
+    type: 'bar',
+    data: {
+      labels: sectors.map(([k])=>k),
+      datasets: [{ data: sectors.map(([,v])=>Math.round(v)), backgroundColor: COLORS.ac, borderWidth: 0 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888', font:{size:11}, callback: v => fmt(v) }, grid: { color: 'rgba(128,128,128,0.1)' } },
+        y: { ticks: { color: '#888', font:{size:11}, autoSkip: false } }
+      }
+    }
+  });
+
+  // Insights
+  const insights = generateInsights(d);
+  document.getElementById('insights-list').innerHTML = insights.map(i => `
+    <div class="insight-row">
+      <div class="insight-icon ${i.type}">${i.icon}</div>
+      <div class="insight-text">${i.text}</div>
+    </div>
+  `).join('');
+
+  // Stress + alignment from JSON (if loaded)
+  if (jsonReportData) {
+    renderStress(jsonReportData);
+    renderAlignment(jsonReportData);
+  } else {
+    document.getElementById('stress-section').style.display = 'none';
+    document.getElementById('alignment-section').style.display = 'none';
+  }
+}
+
+/* ─── Render stress test panels ─── */
+function renderStress(report) {
+  const stress = report.stress_test;
+  if (!stress) return;
+  document.getElementById('stress-section').style.display = 'block';
+
+  const SCENARIO_LABELS = {
+    'net_zero_2050_orderly': 'Orderly',
+    'delayed_transition_disorderly': 'Disorderly',
+    'current_policies_hot_house': 'Hot House',
+  };
+  const SCENARIO_COLORS = ['#2d6b47','#e8a832','#b03a2a'];
+  const scenarios = Object.keys(stress);
+
+  // Scenario comparison bar chart
+  charts.stress = new Chart(document.getElementById('stressChart'), {
+    type: 'bar',
+    data: {
+      labels: scenarios.map(s => SCENARIO_LABELS[s] || s),
+      datasets: [{
+        data: scenarios.map(s => Math.round(stress[s].total_carbon_cost_usd / 1e6)),
+        backgroundColor: SCENARIO_COLORS, borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color:'#888', font:{size:11}, callback: v => `$${v}M` },
+             grid: { color:'rgba(128,128,128,0.1)' } },
+        x: { ticks: { color:'#888', font:{size:11} }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Scenario table
+  document.getElementById('stress-scenario-table').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <tr style="font-size:10px;color:var(--text-muted);border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:4px 0;font-weight:normal;">Scenario</th>
+        <th style="text-align:right;font-weight:normal;">Price</th>
+        <th style="text-align:right;font-weight:normal;">Cost</th>
+        <th style="text-align:right;font-weight:normal;">High risk</th>
+      </tr>
+      ${scenarios.map((s,i) => `
+        <tr style="font-size:12px;border-bottom:1px solid var(--border);">
+          <td style="padding:6px 0;color:var(--text);">${stress[s].scenario_label}</td>
+          <td style="text-align:right;color:var(--text-muted);">$${stress[s].carbon_price_usd_per_tco2e.toFixed(0)}</td>
+          <td style="text-align:right;color:var(--text);">$${(stress[s].total_carbon_cost_usd/1e6).toFixed(1)}M</td>
+          <td style="text-align:right;color:${stress[s].n_high_risk > 0 ? 'var(--red)' : 'var(--text-muted)'};">${stress[s].n_high_risk}</td>
+        </tr>`).join('')}
+    </table>`;
+
+  // High-risk holdings
+  const orderly = stress['net_zero_2050_orderly'];
+  const highRisk = orderly ? orderly.high_risk_holdings : [];
+  if (highRisk.length === 0) {
+    document.getElementById('stress-high-risk').innerHTML =
+      '<p style="font-size:12px;color:var(--text-muted);margin-top:0.5rem;">No high-risk holdings under any scenario.</p>';
+  } else {
+    document.getElementById('stress-high-risk').innerHTML = highRisk.map(h => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--text);font-weight:500;">${h.entity_name}</span>
+        <span style="font-size:11px;background:var(--red-light);color:var(--red);padding:2px 8px;border-radius:20px;">
+          ${h.carbon_cost_pct_revenue ? (h.carbon_cost_pct_revenue*100).toFixed(1)+'% of rev' : 'High risk'}
+        </span>
+      </div>`).join('');
+  }
+
+  // Asset class chart — orderly scenario
+  const acData = orderly ? orderly.by_asset_class : {};
+  const acSorted = Object.entries(acData)
+    .filter(([,v]) => v.carbon_cost_usd > 0)
+    .sort((a,b) => b[1].carbon_cost_usd - a[1].carbon_cost_usd);
+  const acH = Math.max(180, acSorted.length * 38 + 60);
+  document.getElementById('stressAssetChart').parentElement.style.height = acH + 'px';
+  charts.stressAsset = new Chart(document.getElementById('stressAssetChart'), {
+    type: 'bar',
+    data: {
+      labels: acSorted.map(([k]) => k.replace(/_/g,' ')),
+      datasets: [{
+        data: acSorted.map(([,v]) => +(v.carbon_cost_usd/1e6).toFixed(2)),
+        backgroundColor: COLORS.ac, borderWidth: 0,
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color:'#888', font:{size:11}, callback: v => `$${v}M` },
+             grid: { color:'rgba(128,128,128,0.1)' } },
+        y: { ticks: { color:'#888', font:{size:11}, autoSkip: false } }
+      }
+    }
+  });
+}
+
+/* ─── Render alignment panels ─── */
+function renderAlignment(report) {
+  const al = report.pathway_alignment;
+  if (!al) return;
+  document.getElementById('alignment-section').style.display = 'block';
+
+  // Temperature score rows
+  const tempRows = [
+    { label: 'No cap (raw)', val: al.implied_temperature_no_cap, note: 'Can be distorted by outliers' },
+    { label: `Overshoot cap (${al.overshoot_cap_used || 10}×) — MSCI`, val: al.implied_temperature_capped, note: 'Recommended' },
+    { label: 'Winsorised (95th pct)', val: al.implied_temperature_winsorised, note: '' },
+  ];
+  const methodMap = { 'no_cap': 0, 'overshoot_cap': 1, 'winsorise': 2 };
+  const primaryIdx = methodMap[al.temperature_method] ?? 1;
+
+  const tempColor = t => t == null ? '#888' : t <= 1.6 ? '#2d6b47' : t <= 2.0 ? '#e8a832' : '#b03a2a';
+
+  document.getElementById('temp-score-rows').innerHTML = tempRows.map((row, i) => {
+    const isPrimary = i === primaryIdx;
+    const t = row.val;
+    const tStr = t != null ? `~${t.toFixed(1)}°C` : 'N/A';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;
+      padding:10px 12px;margin-bottom:6px;border-radius:6px;
+      background:${isPrimary ? 'var(--accent-light)' : 'var(--surface2)'};
+      border:${isPrimary ? '1px solid var(--accent-mid)' : '1px solid var(--border)'};">
+      <div>
+        <div style="font-size:12px;color:var(--text);font-weight:${isPrimary?'600':'normal'};">${row.label}</div>
+        <div style="font-size:10px;color:var(--text-muted);">${row.note}${isPrimary ? ' ◀ primary' : ''}</div>
+      </div>
+      <div style="font-size:22px;color:${tempColor(t)};font-weight:600;">${tStr}</div>
+    </div>`;
+  }).join('');
+
+  // AUM alignment bars
+  const barItems = [
+    { label: 'Ahead of pathway', val: al.pct_aum_ahead_of_path, color: '#2d6b47' },
+    { label: 'Aligned (within 20%)', val: al.pct_aum_aligned, color: '#5ab87c' },
+    { label: 'Misaligned', val: al.pct_aum_misaligned, color: '#b03a2a' },
+    { label: 'No data', val: al.pct_aum_no_data, color: '#d0cec8' },
+  ];
+  document.getElementById('alignment-bars').innerHTML = barItems.map(b => `
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:3px;">
+        <span>${b.label}</span><span>${((b.val||0)*100).toFixed(1)}%</span>
+      </div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${((b.val||0)*100).toFixed(1)}%;background:${b.color};border-radius:3px;"></div>
+      </div>
+    </div>`).join('');
+
+  // Holdings table
+  const STATUS_STYLE = {
+    misaligned:    { bg: '#fbeae7', color: '#b03a2a', label: '✗ Misaligned' },
+    aligned:       { bg: '#c8dfd1', color: '#1a4a2a', label: '✓ Aligned' },
+    ahead_of_path: { bg: '#e4efe8', color: '#2d6b47', label: '★ Ahead' },
+    no_data:       { bg: 'var(--surface2)', color: 'var(--text-muted)', label: '○ No data' },
+  };
+  const sorted = [...al.holdings].sort((a, b) => {
+    const order = { misaligned: 0, aligned: 1, ahead_of_path: 2, no_data: 3 };
+    return (order[a.alignment_status] ?? 9) - (order[b.alignment_status] ?? 9) ||
+           (b.intensity_gap_pct || 0) - (a.intensity_gap_pct || 0);
+  });
+  document.getElementById('alignment-table').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:4px 0;font-weight:normal;font-size:10px;color:var(--text-muted);">Company</th>
+        <th style="text-align:left;font-weight:normal;font-size:10px;color:var(--text-muted);">Status</th>
+        <th style="text-align:right;font-weight:normal;font-size:10px;color:var(--text-muted);">Gap</th>
+      </tr>
+      ${sorted.map(h => {
+        const st = STATUS_STYLE[h.alignment_status] || STATUS_STYLE.no_data;
+        const gap = h.intensity_gap_pct != null ? `${(h.intensity_gap_pct*100).toFixed(0)}%` : '—';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 0;color:var(--text);">${h.entity_name}</td>
+          <td><span style="font-size:10px;padding:2px 6px;border-radius:20px;background:${st.bg};color:${st.color};">${st.label}</span></td>
+          <td style="text-align:right;color:${h.intensity_gap_pct > 0 ? 'var(--red)' : 'var(--accent-mid)'};">${gap}</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+}
+
+/* ─── Auto-generated insights ─── */
+function generateInsights(d) {
+  const insights = [];
+  const topH = [...d.holdings].filter(h=>h.financed_total>0).sort((a,b)=>b.financed_total-a.financed_total);
+
+  // Concentration
+  if (topH.length >= 2) {
+    const top1 = topH[0];
+    const top1pct = ((top1.financed_total / d.totalFE)*100).toFixed(0);
+    if (parseInt(top1pct) >= 40) {
+      insights.push({ type:'warn', icon:'!', text: `<strong>${top1.entity_name}</strong> accounts for <strong>${top1pct}%</strong> of total financed emissions. <span>High concentration in a single counterparty is a material climate risk. Consider engagement or rebalancing.</span>` });
+    }
+  }
+
+  // Scope 3 dominance
+  const s3share = d.totalFE > 0 ? d.totalS3 / d.totalFE : 0;
+  if (s3share > 0.6) {
+    insights.push({ type:'info', icon:'i', text: `<strong>${(s3share*100).toFixed(0)}% of emissions are Scope 3</strong> (value chain). <span>These are indirect emissions outside the company's direct control, but still count toward your financed footprint under PCAF.</span>` });
+  }
+
+  // DQ score
+  if (d.portDQ != null) {
+    if (d.portDQ > 3.5) {
+      insights.push({ type:'warn', icon:'!', text: `Portfolio DQ score of <strong>${d.portDQ.toFixed(1)}</strong> indicates heavy reliance on estimated data. <span>Error margins may reach ±40%. Prioritise data collection from top emitters to improve reliability.</span>` });
+    } else if (d.portDQ < 2.5) {
+      insights.push({ type:'ok', icon:'✓', text: `DQ score of <strong>${d.portDQ.toFixed(1)}</strong> is strong. <span>Most emissions data is reported or verified, giving regulators and investors confidence in these figures.</span>` });
+    }
+  }
+
+  // Coverage gap
+  if (d.aum_coverage < 0.8) {
+    const gap = ((1 - d.aum_coverage)*100).toFixed(0);
+    insights.push({ type:'warn', icon:'!', text: `<strong>${gap}% of AUM</strong> has no emissions data match. <span>These holdings are excluded from the financed emissions total, which means the real footprint may be higher than reported.</span>` });
+  } else if (d.aum_coverage >= 0.95) {
+    insights.push({ type:'ok', icon:'✓', text: `<strong>${(d.aum_coverage*100).toFixed(0)}% AUM coverage</strong> — near-complete emissions data matched. <span>This is above the PCAF recommended minimum threshold and suitable for regulatory disclosure.</span>` });
+  }
+
+  // Renewable energy
+  const renewables = d.holdings.filter(h => h.sector === 'Utilities' && (h.entity_name.toLowerCase().includes('solar') || h.entity_name.toLowerCase().includes('wind') || h.entity_name.toLowerCase().includes('electric')));
+  if (renewables.length > 0) {
+    const renewAUM = renewables.reduce((a,h)=>a+h.outstanding,0);
+    insights.push({ type:'ok', icon:'✓', text: `<strong>${fmtBig(renewAUM)} invested in clean energy</strong> (${renewables.length} holdings). <span>Low-carbon assets reduce portfolio average intensity and support Paris alignment.</span>` });
+  }
+
+  if (insights.length === 0) {
+    insights.push({ type:'info', icon:'i', text: 'Upload a real portfolio to see tailored insights based on your holdings.' });
+  }
+
+  return insights;
+}
+
+/* ─── Drawer state ─── */
+let currentPortfolioResult = null;
+let lastHoldingId = null;
+
+/* Store result so drawer can access it */
+function storeResult(r) { currentPortfolioResult = r; }
+
+/* ─── Drawer open / close ─── */
+function openDrawer(holdingId) {
+  if (!currentPortfolioResult) return;
+  lastHoldingId = holdingId;
+
+  const h = currentPortfolioResult.holdings.find(h => h.holding_id === holdingId);
+  if (!h) return;
+
+  // Highlight active row
+  document.querySelectorAll('.holdings-table tbody tr').forEach(r => r.classList.remove('active'));
+  const row = document.querySelector(`tr[data-id="${holdingId}"]`);
+  if (row) row.classList.add('active');
+
+  renderDrawer(h, currentPortfolioResult);
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  document.querySelectorAll('.holdings-table tbody tr').forEach(r => r.classList.remove('active'));
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+/* ─── Render drawer content ─── */
+const AC_FULL = {
+  'listed_equity_and_corporate_bonds': 'Listed equity / corporate bonds',
+  'business_loans_and_unlisted_equity': 'Business loan / unlisted equity',
+  'project_finance': 'Project finance',
+  'commercial_real_estate': 'Commercial real estate',
+  'mortgages': 'Mortgages',
+  'motor_vehicle_loans': 'Motor vehicle loans',
+  'sovereign_debt': 'Sovereign debt',
+};
+
+const DQ_LABELS = {
+  1: 'Verified & audited', 2: 'Reported (unaudited)',
+  3: 'Sector average', 4: 'Regional proxy', 5: 'Estimated'
+};
+const DQ_EXPLAIN = {
+  1: '±5–10% error margin', 2: '±10–20% error margin',
+  3: '±20–30% error margin', 4: '±30–40% error margin', 5: '±40–50% error margin'
+};
+const DQ_BG2 = ['#e4efe8','#c8dfd1','#fdf3e0','#fde8d5','#fbeae7'];
+const DQ_COL2 = ['#1a4a2a','#1a4a2a','#7a4a00','#7a2a00','#5a1a10'];
+
+const METHOD_LABELS = {
+  'reported_verified': 'Reported & verified',
+  'reported_unaudited': 'Reported (unaudited)',
+  'eeio_spend_based': 'EEIO spend-based model',
+  'sector_intensity_revenue': 'Sector intensity × revenue',
+  'regional_proxy': 'Regional proxy',
+};
+
+function renderDrawer(h, d) {
+  // Header
+  const ac = AC_FULL[h.asset_class] || h.asset_class;
+  const country = h.country || '';
+  const sector = h.sector || '';
+  document.getElementById('drawer-company-name').textContent = h.entity_name;
+  document.getElementById('drawer-company-sub').textContent = [ac, sector, country].filter(Boolean).join(' · ');
+
+  // Exposure stats
+  document.getElementById('d-outstanding').textContent = fmtBig(h.outstanding);
+  document.getElementById('d-attr').textContent = h.attrFactor != null ? (h.attrFactor*100).toFixed(2)+'%' : '—';
+  document.getElementById('d-fe').textContent = fmt(h.financed_total);
+  const sharePct = d.totalFE > 0 && h.financed_total ? ((h.financed_total/d.totalFE)*100) : 0;
+  document.getElementById('d-port-share').textContent = sharePct.toFixed(1) + '%';
+  document.getElementById('d-share-fill').style.width = Math.min(100, sharePct).toFixed(1) + '%';
+
+  // Scope rows — use raw entity emissions (before attribution)
+  const rec = findEmissionsRecord(h.holding_id);
+  const rawS1 = rec ? parseFloat(rec.scope_1_emissions)||0 : null;
+  const rawS2 = rec ? parseFloat(rec.scope_2_emissions)||0 : null;
+  const rawS3u = rec ? parseFloat(rec.scope_3_upstream)||0 : 0;
+  const rawS3d = rec ? parseFloat(rec.scope_3_downstream)||0 : 0;
+  const rawS3 = rec && (rec.scope_3_upstream||rec.scope_3_downstream) ? rawS3u+rawS3d : null;
+  const maxRaw = Math.max(rawS1||0, rawS2||0, rawS3||0, 1);
+
+  const methodLabel = m => METHOD_LABELS[m] || m || '—';
+
+  const scopeRows = [
+    { label:'Scope 1', val:rawS1, color:'#2d6b47', method: rec?.scope_1_method },
+    { label:'Scope 2', val:rawS2, color:'#5ab87c', method: rec?.scope_2_method },
+    { label:'Scope 3', val:rawS3, color:'#b8dfc8', method: rec?.scope_3_method },
+  ];
+
+  document.getElementById('d-scope-rows').innerHTML = scopeRows.map(s => {
+    if (s.val == null) return `
+      <div class="drawer-scope-row">
+        <span class="drawer-scope-name">${s.label}</span>
+        <span style="font-size:11px;color:var(--text-faint);">No data</span>
+      </div>`;
+    const barW = ((s.val/maxRaw)*100).toFixed(1);
+    return `
+      <div class="drawer-scope-row">
+        <span class="drawer-scope-name">${s.label}</span>
+        <div class="drawer-scope-track"><div class="drawer-scope-fill" style="width:${barW}%;background:${s.color}"></div></div>
+        <span class="drawer-scope-vals">${fmt(s.val)} tCO₂e</span>
+      </div>
+      <div class="drawer-scope-method">${methodLabel(s.method)}</div>`;
+  }).join('');
+
+  // DQ rows
+  const dqRows = [
+    { scope:'Scope 1', score: rec ? parseFloat(rec.scope_1_dq_score)||null : null },
+    { scope:'Scope 2', score: rec ? parseFloat(rec.scope_2_dq_score)||null : null },
+    { scope:'Scope 3', score: rec ? parseFloat(rec.scope_3_dq_score)||null : null },
+  ];
+  document.getElementById('d-dq-rows').innerHTML = dqRows.map(r => {
+    if (!r.score) return `<div class="drawer-dq-row"><span class="drawer-dq-label">${r.scope}</span><span style="font-size:11px;color:var(--text-faint);">—</span></div>`;
+    const idx = Math.min(4, Math.round(r.score)-1);
+    return `<div class="drawer-dq-row">
+      <span class="drawer-dq-label">${r.scope}</span>
+      <div class="drawer-dq-right">
+        <span class="drawer-dq-badge" style="background:${DQ_BG2[idx]};color:${DQ_COL2[idx]};">DQ ${r.score.toFixed(0)} — ${DQ_LABELS[Math.round(r.score)]}</span>
+        <span class="drawer-dq-explain">${DQ_EXPLAIN[Math.round(r.score)]}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Engagement actions
+  document.getElementById('d-actions').innerHTML = generateActions(h, d).map(a => `
+    <div class="drawer-action-row">
+      <div class="drawer-action-icon" style="background:${a.bg};color:${a.col};">${a.icon}</div>
+      <div class="drawer-action-text"><strong>${a.title}</strong> — ${a.text}</div>
+    </div>`).join('');
+
+  // AI insight — async
+  document.getElementById('d-ai-text').className = 'drawer-ai-loading';
+  document.getElementById('d-ai-text').textContent = 'Analysing holding…';
+  fetchAIInsight(h, d, rec);
+}
+
+/* ─── Find raw emissions record by holding_id ─── */
+function findEmissionsRecord(holdingId) {
+  if (!portfolioData || !emissionsData) return null;
+  const pRow = portfolioData.find(r => r.holding_id === holdingId);
+  if (!pRow) return null;
+  const eid = (pRow.entity_id || pRow.isin || holdingId || '').trim();
+  return emissionsData.find(r => (r.entity_id||'').trim() === eid) || null;
+}
+
+/* ─── Engagement action generator ─── */
+function generateActions(h, d) {
+  const actions = [];
+  const sharePct = d.totalFE > 0 && h.financed_total ? (h.financed_total/d.totalFE)*100 : 0;
+
+  if (sharePct > 20) {
+    actions.push({ icon:'↗', bg:'#fbeae7', col:'#b03a2a', title:'Priority engagement', text:'This holding drives over 20% of portfolio emissions. Request a detailed transition plan and near-term reduction targets.' });
+  }
+  if (h.dqScore != null && h.dqScore >= 4) {
+    actions.push({ icon:'?', bg:'#fdf3e0', col:'#c47f1a', title:'Improve data quality', text:'DQ score is high, meaning emissions are estimated rather than reported. Request primary disclosure via CDP or directly from the company.' });
+  }
+  if (h.asset_class === 'business_loans_and_unlisted_equity' || h.asset_class === 'project_finance') {
+    actions.push({ icon:'≡', bg:'#e6eff9', col:'#1a4a7a', title:'Loan covenant', text:'Consider adding a climate-linked covenant or margin ratchet tied to annual emissions reporting and reduction milestones.' });
+  }
+  if (h.sector === 'Energy' || h.sector === 'Materials') {
+    actions.push({ icon:'⬇', bg:'#e4efe8', col:'#1a4a2a', title:'Net zero alignment', text:'High-carbon sector. Assess company against SBTi 1.5°C pathway and consider portfolio weight implications if no credible transition plan exists.' });
+  }
+  if (actions.length === 0) {
+    actions.push({ icon:'i', bg:'#e6eff9', col:'#1a4a7a', title:'Monitor', text:'No immediate engagement flags. Continue monitoring annual emissions trends and data quality.' });
+  }
+  return actions;
+}
+
+/* ─── AI insight via Anthropic API ─── */
+async function fetchAIInsight(h, d, rec) {
+  const sharePct = d.totalFE > 0 && h.financed_total ? ((h.financed_total/d.totalFE)*100).toFixed(1) : 'unknown';
+  const prompt = `You are a climate finance analyst at an asset manager. Give a concise 3-sentence insight (no headers, no bullet points, plain prose) about this portfolio holding from a PCAF financed emissions perspective.
+
+Holding: ${h.entity_name}
+Sector: ${h.sector || 'unknown'}
+Country: ${h.country || 'unknown'}
+Asset class: ${h.asset_class}
+Our investment / loan: ${fmtBig(h.outstanding)}
+Attribution factor: ${h.attrFactor != null ? (h.attrFactor*100).toFixed(2)+'%' : 'unknown'}
+Financed emissions (our share): ${fmt(h.financed_total)} tCO₂e
+Share of portfolio total emissions: ${sharePct}%
+Weighted DQ score: ${h.dqScore != null ? h.dqScore.toFixed(1) : 'unknown'} out of 5
+Scope 1 (entity total): ${rec ? fmt(parseFloat(rec.scope_1_emissions)) : '—'} tCO₂e
+Scope 2 (entity total): ${rec ? fmt(parseFloat(rec.scope_2_emissions)) : '—'} tCO₂e
+Scope 3 (entity total): ${rec ? fmt((parseFloat(rec.scope_3_upstream)||0)+(parseFloat(rec.scope_3_downstream)||0)) : '—'} tCO₂e
+
+Focus on: what this emissions profile means for climate risk exposure, whether the data quality is fit for regulatory disclosure, and one specific action the portfolio manager should consider.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    const el = document.getElementById('d-ai-text');
+    if (text && el) {
+      el.className = 'drawer-ai-text';
+      el.textContent = text.trim();
+    }
+  } catch(e) {
+    const el = document.getElementById('d-ai-text');
+    if (el) {
+      el.className = 'drawer-ai-text';
+      el.textContent = 'AI analysis unavailable. Check your network connection or try again.';
+    }
+  }
+}
+</script>

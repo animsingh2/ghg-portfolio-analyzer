@@ -1,0 +1,19 @@
+entity_id,reporting_year,scope_1_emissions,scope_2_emissions,scope_3_upstream,scope_3_downstream,scope_1_dq_score,scope_2_dq_score,scope_3_dq_score,scope_1_method,scope_2_method,scope_3_method,revenue_usd,evic_usd,total_equity_debt_usd,gics_sector,gics_industry_group,nace_code,country_iso3
+FR0014000MR3,2022,35200000,1800000,12500000,455000000,1,1,2,reported_verified,reported_verified,reported_unaudited,218000000000,145000000000,,Energy,Oil Gas & Consumable Fuels,B06,FRA
+DE0007664039,2022,2850000,420000,3200000,52000000,1,2,3,reported_verified,reported_unaudited,sector_intensity_revenue,293000000000,72000000000,,Consumer Discretionary,Automobiles & Components,C29,DEU
+US5949181045,2022,118000,285000,3900000,8200000,2,1,3,reported_unaudited,reported_verified,sector_intensity_revenue,212000000000,2800000000000,,Information Technology,Software & Services,J62,USA
+INE081A01012,2022,18500000,2100000,8800000,4200000,2,2,4,reported_unaudited,reported_unaudited,regional_proxy,22000000000,18000000000,,Materials,Metals & Mining,C24,IND
+IT0003128367,2022,12000000,890000,2100000,18000000,1,1,2,reported_verified,reported_verified,reported_unaudited,93000000000,55000000000,,Utilities,Electric Utilities,D35,ITA
+GreenBuild_SME,2022,850000,210000,420000,,3,3,4,sector_intensity_revenue,sector_intensity_revenue,regional_proxy,14000000,,22000000,Industrials,Construction & Engineering,F41,GBR
+AgriCorp_Unlisted,2022,1200000,85000,3400000,1800000,4,4,5,regional_proxy,regional_proxy,estimated,6500000,,9500000,Consumer Staples,Food Products,A01,BRA
+SolarFarm_Alpha,2022,4200,18000,95000,,2,1,3,reported_unaudited,reported_verified,sector_intensity_revenue,,," 85000000",Utilities,Renewable Electricity,D35,ESP
+OffshoreWind_Beta,2022,8500,42000,280000,,2,2,3,reported_unaudited,reported_unaudited,sector_intensity_revenue,,,220000000,Utilities,Renewable Electricity,D35,GBR
+CityOffice_DE,2022,720000,185000,,,3,3,,sector_intensity_revenue,sector_intensity_revenue,,,,42000000,Real Estate,Real Estate Management,L68,DEU
+Warehouse_PL,2022,380000,95000,,,4,4,,regional_proxy,regional_proxy,,,,18500000,Real Estate,Industrial REITs,L68,POL
+MortgagePool_A,2022,,,,,,,5,,,,,,6800000,Real Estate,,L68,GBR
+MortgagePool_B,2022,,,,,,,5,,,,,,3900000,Real Estate,,L68,FRA
+FleetVehicles,2022,185000,42000,320000,,3,3,4,sector_intensity_revenue,sector_intensity_revenue,regional_proxy,95000000,,1950000,Industrials,Transportation,N77,DEU
+EVFleet_NL,2022,12000,8500,95000,,2,2,3,reported_unaudited,reported_unaudited,sector_intensity_revenue,42000000,,1400000,Industrials,Transportation,N77,NLD
+DE0001102580,2022,646000000,92000000,,,1,2,,reported_verified,reported_unaudited,,4430000000000,,,Government,,O84,DEU
+Brazil_BRA,2022,1040000000,185000000,,,2,3,,reported_unaudited,sector_intensity_revenue,,1920000000000,,,Government,,O84,BRA
+India_IND,2022,2620000000,380000000,,,2,3,,reported_unaudited,sector_intensity_revenue,,3385000000000,,,Government,,O84,IND

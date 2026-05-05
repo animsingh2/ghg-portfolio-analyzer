@@ -1,0 +1,19 @@
+holding_id,portfolio_id,entity_name,entity_id,asset_class,outstanding_amount_usd,reporting_date,isin,lei,country_iso3,evic_usd,total_equity_debt_usd,total_project_value_usd,collateral_value_usd,government_revenue_usd
+H001,PORT_ALPHA,TotalEnergies SE,FR0014000MR3,listed_equity_and_corporate_bonds,12500000,2023-12-31,FR0014000MR3,,FRA,145000000000,,,," "
+H002,PORT_ALPHA,Volkswagen AG,DE0007664039,listed_equity_and_corporate_bonds,8200000,2023-12-31,DE0007664039,,DEU,72000000000,,,,
+H003,PORT_ALPHA,Microsoft Corporation,US5949181045,listed_equity_and_corporate_bonds,15000000,2023-12-31,US5949181045,,USA,2800000000000,,,,
+H004,PORT_ALPHA,Tata Steel Ltd,INE081A01012,listed_equity_and_corporate_bonds,4500000,2023-12-31,INE081A01012,,IND,18000000000,,,,
+H005,PORT_ALPHA,Enel SpA,IT0003128367,listed_equity_and_corporate_bonds,6800000,2023-12-31,IT0003128367,,ITA,55000000000,,,,
+H006,PORT_ALPHA,GreenBuild SME (Private),GreenBuild_SME,business_loans_and_unlisted_equity,3000000,2023-12-31,,,GBR,,22000000,,,
+H007,PORT_ALPHA,AgriCorp Unlisted,AgriCorp_Unlisted,business_loans_and_unlisted_equity,1800000,2023-12-31,,,BRA,,9500000,,,
+H008,PORT_ALPHA,Solar Farm Alpha,SolarFarm_Alpha,project_finance,20000000,2023-12-31,,,ESP,,,85000000,,
+H009,PORT_ALPHA,Offshore Wind Beta,OffshoreWind_Beta,project_finance,35000000,2023-12-31,,,GBR,,,220000000,,
+H010,PORT_ALPHA,City Centre Office Block,CityOffice_DE,commercial_real_estate,9000000,2023-12-31,,,DEU,,,42000000,,
+H011,PORT_ALPHA,Industrial Warehouse Park,Warehouse_PL,commercial_real_estate,5500000,2023-12-31,,,POL,,,18500000,,
+H012,PORT_ALPHA,Residential Mortgage Pool A,MortgagePool_A,mortgages,7200000,2023-12-31,,,GBR,,,,6800000,
+H013,PORT_ALPHA,Residential Mortgage Pool B,MortgagePool_B,mortgages,4100000,2023-12-31,,,FRA,,,,3900000,
+H014,PORT_ALPHA,Fleet Vehicles Leasing Co,FleetVehicles,motor_vehicle_loans,2200000,2023-12-31,,,DEU,,,,1950000,
+H015,PORT_ALPHA,Electric Van Fleet Ltd,EVFleet_NL,motor_vehicle_loans,1500000,2023-12-31,,,NLD,,,,1400000,
+H016,PORT_ALPHA,Germany Federal Republic,Germany_DEU,sovereign_debt,25000000,2023-12-31,DE0001102580,,DEU,,,,," 1890000000000"
+H017,PORT_ALPHA,Republic of Brazil,Brazil_BRA,sovereign_debt,10000000,2023-12-31,,,BRA,,,,,2100000000000
+H018,PORT_ALPHA,Republic of India,India_IND,sovereign_debt,8000000,2023-12-31,,,IND,,,,,3500000000000
