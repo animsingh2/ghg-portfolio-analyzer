@@ -1,20 +1,20 @@
 """
-Module 1 — Data Ingestion
-=========================
+GHG Portfolio Analyzer — Data Ingestion
+========================================
 Loads portfolio and emissions data from CSV, validates schema,
 normalises types, and returns typed domain objects ready for
 the PCAF engine.
 
 Supported inputs
 ----------------
-- CSV upload (local file path)
-- pandas DataFrame (for notebook / API use)
+- CSV file path (str or Path)
+- pandas DataFrame
 
 Validation covers
 -----------------
-- Required columns presence
+- Required column presence
 - Asset-class-specific attribution denominator checks
-- DQ score range (1–5)
+- DQ score range (1-5)
 - Emissions non-negativity
 - Date parsing
 """
@@ -42,26 +42,25 @@ from src.models import (
 
 logger = logging.getLogger(__name__)
 
-
 # ---------------------------------------------------------------------------
 # Attribution denominator requirements by asset class
+# PCAF Standard 2022, Table 10.1
 # ---------------------------------------------------------------------------
 
-# Maps asset class → which CSV column must be populated as the PCAF denominator
 REQUIRED_DENOMINATOR: dict[AssetClass, str] = {
-    AssetClass.LISTED_EQUITY_CORP_BONDS:    "evic_usd",
+    AssetClass.LISTED_EQUITY_CORP_BONDS:       "evic_usd",
     AssetClass.BUSINESS_LOANS_UNLISTED_EQUITY: "total_equity_debt_usd",
-    AssetClass.PROJECT_FINANCE:             "total_project_value_usd",
-    AssetClass.COMMERCIAL_REAL_ESTATE:      "total_project_value_usd",
-    AssetClass.MORTGAGES:                   "collateral_value_usd",
-    AssetClass.MOTOR_VEHICLE_LOANS:         "collateral_value_usd",
-    AssetClass.SOVEREIGN_DEBT:              "government_revenue_usd",
+    AssetClass.PROJECT_FINANCE:                "total_project_value_usd",
+    AssetClass.COMMERCIAL_REAL_ESTATE:         "total_project_value_usd",
+    AssetClass.MORTGAGES:                      "collateral_value_usd",
+    AssetClass.MOTOR_VEHICLE_LOANS:            "collateral_value_usd",
+    AssetClass.SOVEREIGN_DEBT:                 "government_revenue_usd",
 }
 
+# ---------------------------------------------------------------------------
+# Custom warning / error types
+# ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Validation helpers
-# ---------------------------------------------------------------------------
 
 class ValidationWarning(UserWarning):
     """Non-fatal data quality issue — row is kept but flagged."""
@@ -71,12 +70,16 @@ class ValidationError(ValueError):
     """Fatal schema error — ingestion cannot continue."""
 
 
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
 def _check_required_columns(df: pd.DataFrame, required: list[str], source: str) -> None:
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValidationError(
-            f"{source}: missing required columns: {missing}\n"
-            f"Expected columns: {list(PORTFOLIO_CSV_COLUMNS.keys())}"
+            f"{source}: missing required columns: {missing}"
         )
 
 
@@ -100,7 +103,7 @@ def _parse_dq_score(value) -> Optional[DataQualityScore]:
         return DataQualityScore(int(value))
     except (ValueError, KeyError):
         warnings.warn(
-            f"Invalid DQ score '{value}'. Must be 1–5. Defaulting to 5 (estimated).",
+            f"Invalid DQ score '{value}'. Must be 1-5. Defaulting to 5 (estimated).",
             ValidationWarning,
             stacklevel=3,
         )
@@ -126,9 +129,26 @@ def _float_or_none(value) -> Optional[float]:
         return None
 
 
+def _resolve_entity_id(row: pd.Series, holding_id: str) -> str:
+    """
+    Resolve the entity ID used to link a portfolio holding to an emissions record.
+
+    Priority order:
+      1. 'entity_id' column if present and non-null
+      2. 'isin' column if present and non-null
+      3. holding_id as fallback (for private/unlisted assets)
+    """
+    for col in ("entity_id", "isin"):
+        val = row.get(col)
+        if val is not None and not pd.isna(val):
+            return str(val).strip()
+    return holding_id
+
+
 # ---------------------------------------------------------------------------
 # Portfolio ingestion
 # ---------------------------------------------------------------------------
+
 
 def load_portfolio_csv(
     path: Union[str, Path],
@@ -140,14 +160,27 @@ def load_portfolio_csv(
 
     Parameters
     ----------
-    path : path to the CSV file
-    portfolio_id : overrides the portfolio_id column if provided
-    portfolio_name : display name for the portfolio
+    path:
+        Path to the CSV file.
+    portfolio_id:
+        Overrides the portfolio_id column value when provided.
+    portfolio_name:
+        Display name for the portfolio.
 
     Returns
     -------
-    Portfolio with validated PortfolioHolding objects.
-    Rows with fatal errors are skipped and logged.
+    Portfolio
+        Validated Portfolio with PortfolioHolding objects.
+        Rows with fatal errors are skipped and logged.
+
+    Notes
+    -----
+    Entity ID resolution for linking to emissions records:
+      - Uses 'entity_id' column when present.
+      - Falls back to 'isin' when entity_id is absent or null.
+      - Falls back to holding_id for private/unlisted assets with no identifier.
+    Attribution factors > 1 are valid for mortgages and motor vehicle loans
+    when the outstanding balance exceeds collateral value (PCAF 2022, p. 94).
     """
     path = Path(path)
     if not path.exists():
@@ -156,9 +189,10 @@ def load_portfolio_csv(
     df = pd.read_csv(path, skipinitialspace=True)
     df.columns = df.columns.str.strip().str.lower()
 
-    # Validate required columns
-    required = ["holding_id", "entity_name", "asset_class",
-                "outstanding_amount_usd", "reporting_date"]
+    required = [
+        "holding_id", "entity_name", "asset_class",
+        "outstanding_amount_usd", "reporting_date",
+    ]
     _check_required_columns(df, required, source=str(path))
 
     holdings: list[PortfolioHolding] = []
@@ -167,21 +201,18 @@ def load_portfolio_csv(
     for _, row in df.iterrows():
         holding_id = str(row["holding_id"]).strip()
 
-        # Parse asset class
         asset_class = _parse_asset_class(str(row.get("asset_class", "")))
         if asset_class is None:
             logger.warning("Skipping row %s — invalid asset class.", holding_id)
             skipped += 1
             continue
 
-        # Parse outstanding amount
         outstanding = _float_or_none(row.get("outstanding_amount_usd"))
         if outstanding is None or outstanding <= 0:
             logger.warning("Skipping row %s — invalid outstanding_amount_usd.", holding_id)
             skipped += 1
             continue
 
-        # Parse reporting date
         try:
             rdate = pd.to_datetime(row["reporting_date"]).date()
         except Exception:
@@ -191,28 +222,36 @@ def load_portfolio_csv(
                 ValidationWarning,
             )
 
-        # Check asset-class-specific denominator
         denom_col = REQUIRED_DENOMINATOR.get(asset_class)
         denom_val = _float_or_none(row.get(denom_col)) if denom_col else None
         if denom_col and denom_val is None:
             warnings.warn(
                 f"Holding {holding_id} ({asset_class.value}): "
                 f"attribution denominator '{denom_col}' is missing. "
-                f"Attribution factor cannot be computed; emissions will be estimated.",
+                "Attribution factor cannot be computed.",
                 ValidationWarning,
             )
 
         pid = portfolio_id or str(row.get("portfolio_id", "UNKNOWN")).strip()
+        entity_id = _resolve_entity_id(row, holding_id)
+
+        isin = None
+        if "isin" in df.columns and not pd.isna(row.get("isin")):
+            isin = str(row["isin"]).strip()
+
+        lei = None
+        if "lei" in df.columns and not pd.isna(row.get("lei")):
+            lei = str(row["lei"]).strip()
 
         holding = PortfolioHolding(
             holding_id=holding_id,
             portfolio_id=pid,
             asset_class=asset_class,
             reporting_date=rdate,
-            entity_id=(str(row["isin"]).strip() if "isin" in df.columns and not pd.isna(row.get("isin")) else str(row.get("entity_id", holding_id)).strip()),
+            entity_id=entity_id,
             entity_name=str(row["entity_name"]).strip(),
-            isin=str(row["isin"]).strip() if "isin" in df.columns and not pd.isna(row.get("isin")) else None,
-            lei=str(row["lei"]).strip() if "lei" in df.columns and not pd.isna(row.get("lei")) else None,
+            isin=isin,
+            lei=lei,
             country_iso3=str(row.get("country_iso3", "")).strip() or None,
             outstanding_amount_usd=outstanding,
             evic_usd=_float_or_none(row.get("evic_usd")),
@@ -224,14 +263,12 @@ def load_portfolio_csv(
         holdings.append(holding)
 
     if skipped:
-        logger.warning("Ingestion complete: %d rows skipped due to errors.", skipped)
+        logger.warning("Ingestion complete: %d row(s) skipped due to errors.", skipped)
 
     pid = portfolio_id or (holdings[0].portfolio_id if holdings else "UNKNOWN")
-    pname = portfolio_name or f"Portfolio {pid}"
-
     return Portfolio(
         portfolio_id=pid,
-        portfolio_name=pname,
+        portfolio_name=portfolio_name or f"Portfolio {pid}",
         holdings=holdings,
     )
 
@@ -240,17 +277,21 @@ def load_portfolio_csv(
 # Emissions data ingestion
 # ---------------------------------------------------------------------------
 
+
 def load_emissions_csv(path: Union[str, Path]) -> dict[str, EmissionsRecord]:
     """
     Load emissions data from CSV and return a dict keyed by entity_id.
 
     Parameters
     ----------
-    path : path to the emissions CSV file
+    path:
+        Path to the emissions CSV file.
 
     Returns
     -------
-    dict mapping entity_id → EmissionsRecord
+    dict[str, EmissionsRecord]
+        Mapping of entity_id to EmissionsRecord.
+        Duplicate entity_ids: last row wins (with a warning).
     """
     path = Path(path)
     if not path.exists():
@@ -259,8 +300,7 @@ def load_emissions_csv(path: Union[str, Path]) -> dict[str, EmissionsRecord]:
     df = pd.read_csv(path, skipinitialspace=True)
     df.columns = df.columns.str.strip().str.lower()
 
-    required = ["entity_id", "reporting_year"]
-    _check_required_columns(df, required, source=str(path))
+    _check_required_columns(df, ["entity_id", "reporting_year"], source=str(path))
 
     records: dict[str, EmissionsRecord] = {}
 
@@ -273,17 +313,21 @@ def load_emissions_csv(path: Union[str, Path]) -> dict[str, EmissionsRecord]:
             logger.warning("Skipping entity %s — invalid reporting_year.", entity_id)
             continue
 
-        # Parse DQ scores — default to 5 (estimated) if missing
+        if entity_id in records:
+            warnings.warn(
+                f"Duplicate entity_id '{entity_id}' in emissions CSV; last row wins.",
+                ValidationWarning,
+            )
+
         s1_dq = _parse_dq_score(row.get("scope_1_dq_score")) or DataQualityScore.ESTIMATED
         s2_dq = _parse_dq_score(row.get("scope_2_dq_score")) or DataQualityScore.ESTIMATED
         s3_dq = _parse_dq_score(row.get("scope_3_dq_score")) or DataQualityScore.ESTIMATED
 
-        # Parse estimation methods
         s1_method = _parse_method(row.get("scope_1_method")) or EmissionsEstimationMethod.REGIONAL_PROXY
         s2_method = _parse_method(row.get("scope_2_method")) or EmissionsEstimationMethod.REGIONAL_PROXY
         s3_method = _parse_method(row.get("scope_3_method")) or EmissionsEstimationMethod.REGIONAL_PROXY
 
-        record = EmissionsRecord(
+        records[entity_id] = EmissionsRecord(
             entity_id=entity_id,
             reporting_year=year,
             scope_1_emissions=_float_or_none(row.get("scope_1_emissions")),
@@ -304,21 +348,20 @@ def load_emissions_csv(path: Union[str, Path]) -> dict[str, EmissionsRecord]:
             nace_code=str(row.get("nace_code", "")).strip() or None,
             country_iso3=str(row.get("country_iso3", "")).strip() or None,
         )
-        records[entity_id] = record
 
     logger.info("Loaded %d emissions records from %s", len(records), path)
     return records
 
 
 # ---------------------------------------------------------------------------
-# DataFrame export (for notebooks / dashboards)
+# DataFrame export helpers
 # ---------------------------------------------------------------------------
 
+
 def portfolio_to_dataframe(portfolio: Portfolio) -> pd.DataFrame:
-    """Convert a Portfolio object back to a flat DataFrame for inspection."""
-    rows = []
-    for h in portfolio.holdings:
-        rows.append({
+    """Convert a Portfolio to a flat DataFrame for inspection or export."""
+    return pd.DataFrame([
+        {
             "holding_id": h.holding_id,
             "entity_name": h.entity_name,
             "asset_class": h.asset_class.value,
@@ -328,15 +371,15 @@ def portfolio_to_dataframe(portfolio: Portfolio) -> pd.DataFrame:
             "attribution_factor": h.attribution_factor,
             "financed_emissions_tco2e": h.financed_emissions_tco2e,
             "financed_emissions_dq_score": h.financed_emissions_dq_score,
-        })
-    return pd.DataFrame(rows)
+        }
+        for h in portfolio.holdings
+    ])
 
 
 def emissions_to_dataframe(records: dict[str, EmissionsRecord]) -> pd.DataFrame:
-    """Convert emissions records to a flat DataFrame for inspection."""
-    rows = []
-    for eid, r in records.items():
-        rows.append({
+    """Convert emissions records to a flat DataFrame for inspection or export."""
+    return pd.DataFrame([
+        {
             "entity_id": eid,
             "reporting_year": r.reporting_year,
             "scope_1_tco2e": r.scope_1_emissions,
@@ -348,5 +391,6 @@ def emissions_to_dataframe(records: dict[str, EmissionsRecord]) -> pd.DataFrame:
             "revenue_usd": r.revenue_usd,
             "gics_sector": r.gics_sector,
             "country_iso3": r.country_iso3,
-        })
-    return pd.DataFrame(rows)
+        }
+        for eid, r in records.items()
+    ])

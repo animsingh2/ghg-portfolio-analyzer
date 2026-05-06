@@ -529,6 +529,8 @@
         <canvas id="sectorChart" role="img" aria-label="Bar chart of financed emissions broken down by GICS sector"></canvas>
       </div>
 
+    </div><!-- /sector panel -->
+
     <!-- Stress test panel (shown only when JSON loaded) -->
     <div id="stress-section" style="display:none;">
       <div style="margin-top:2rem;">
@@ -642,7 +644,8 @@ document.addEventListener('DOMContentLoaded', function() {
     reader.readAsText(f);
   });
 
-  document.getElementById('portfolio-file').addEventListener('change', function(e) {get.files[0]; if (!f) return;
+  document.getElementById('portfolio-file').addEventListener('change', function(e) {
+    const f = e.target.files[0]; if (!f) return;
     document.getElementById('portfolio-status').textContent = f.name;
     document.getElementById('portfolio-card').classList.add('loaded');
     Papa.parse(f, { header:true, skipEmptyLines:true, complete: function(r) { portfolioData = r.data; checkReady(); } });
@@ -1559,7 +1562,7 @@ Focus on: what this emissions profile means for climate risk exposure, whether t
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
