@@ -1,3 +1,5 @@
+> **Status:** Work in progress — core PCAF calculations implemented, additional asset classes and reporting features in progress.
+
 # GHG Portfolio Analyzer
 
 A Python library for calculating financed emissions across investment portfolios, built to the [PCAF Global GHG Accounting and Reporting Standard (2022)](https://carbonaccountingfinancials.com/standard).
