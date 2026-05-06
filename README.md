@@ -1,4 +1,4 @@
-> **Status:** Work in progress — core PCAF calculations implemented, additional asset classes and reporting features in progress.
+> **Status:** Work in progress. Core PCAF calculations implemented. Additional asset classes and reporting features in progress.
 
 # GHG Portfolio Analyzer
 
