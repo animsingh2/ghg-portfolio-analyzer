@@ -1,19 +1,19 @@
-holding_id,portfolio_id,entity_name,asset_class,outstanding_amount_usd,reporting_date,entity_id,isin,lei,country_iso3,evic_usd,total_equity_debt_usd,total_project_value_usd,collateral_value_usd,government_revenue_usd
-H001,PORT_ALPHA,TotalEnergies SE,listed_equity_and_corporate_bonds,12500000,2023-12-31,FR0014000MR3,FR0014000MR3,,FRA,145000000000,,,,
-H002,PORT_ALPHA,Volkswagen AG,listed_equity_and_corporate_bonds,8200000,2023-12-31,DE0007664039,DE0007664039,,DEU,72000000000,,,,
-H003,PORT_ALPHA,Microsoft Corporation,listed_equity_and_corporate_bonds,15000000,2023-12-31,US5949181045,US5949181045,,USA,2800000000000,,,,
-H004,PORT_ALPHA,Tata Steel Ltd,listed_equity_and_corporate_bonds,4500000,2023-12-31,INE081A01012,INE081A01012,,IND,18000000000,,,,
-H005,PORT_ALPHA,Enel SpA,listed_equity_and_corporate_bonds,6800000,2023-12-31,IT0003128367,IT0003128367,,ITA,55000000000,,,,
-H006,PORT_ALPHA,GreenBuild SME (Private),business_loans_and_unlisted_equity,3000000,2023-12-31,GreenBuild_SME,,,GBR,,22000000,,,
-H007,PORT_ALPHA,AgriCorp Unlisted,business_loans_and_unlisted_equity,1800000,2023-12-31,AgriCorp_Unlisted,,,BRA,,9500000,,,
-H008,PORT_ALPHA,Solar Farm Alpha,project_finance,20000000,2023-12-31,SolarFarm_Alpha,,,ESP,,,85000000,,
-H009,PORT_ALPHA,Offshore Wind Beta,project_finance,35000000,2023-12-31,OffshoreWind_Beta,,,GBR,,,220000000,,
-H010,PORT_ALPHA,City Centre Office Block,commercial_real_estate,9000000,2023-12-31,CityOffice_DE,,,DEU,,,42000000,,
-H011,PORT_ALPHA,Industrial Warehouse Park,commercial_real_estate,5500000,2023-12-31,Warehouse_PL,,,POL,,,18500000,,
-H012,PORT_ALPHA,Residential Mortgage Pool A,mortgages,7200000,2023-12-31,MortgagePool_A,,,GBR,,,,6800000,
-H013,PORT_ALPHA,Residential Mortgage Pool B,mortgages,4100000,2023-12-31,MortgagePool_B,,,FRA,,,,3900000,
-H014,PORT_ALPHA,Fleet Vehicles Leasing Co,motor_vehicle_loans,2200000,2023-12-31,FleetVehicles,,,DEU,,,,1950000,
-H015,PORT_ALPHA,Electric Van Fleet Ltd,motor_vehicle_loans,1500000,2023-12-31,EVFleet_NL,,,NLD,,,,1400000,
-H016,PORT_ALPHA,Germany Federal Republic,sovereign_debt,25000000,2023-12-31,Germany_DEU,DE0001102580,,DEU,,,,,1890000000000
-H017,PORT_ALPHA,Republic of Brazil,sovereign_debt,10000000,2023-12-31,Brazil_BRA,,,BRA,,,,,2100000000000
-H018,PORT_ALPHA,Republic of India,sovereign_debt,8000000,2023-12-31,India_IND,,,IND,,,,,3500000000000
+holding_id,portfolio_id,entity_name,asset_class,outstanding_amount_usd,reporting_date,entity_id,isin,lei,country_iso3,evic_usd,total_equity_debt_usd,borrower_is_listed,project_has_balance_sheet,project_equity_debt_usd,project_value_at_origination_usd,property_value_at_origination_usd,mortgage_property_value_at_origination_usd,vehicle_value_at_origination_usd,ppp_adjusted_gdp_usd,government_revenue_usd
+H001,PORT_ALPHA,TotalEnergies SE,listed_equity_and_corporate_bonds,12500000,2023-12-31,FR0014000MR3,FR0014000MR3,,FRA,145000000000,,,,,,,,,,
+H002,PORT_ALPHA,Volkswagen AG,listed_equity_and_corporate_bonds,8200000,2023-12-31,DE0007664039,DE0007664039,,DEU,72000000000,,,,,,,,,,
+H003,PORT_ALPHA,Microsoft Corporation,listed_equity_and_corporate_bonds,15000000,2023-12-31,US5949181045,US5949181045,,USA,2800000000000,,,,,,,,,,
+H004,PORT_ALPHA,Tata Steel Ltd,listed_equity_and_corporate_bonds,4500000,2023-12-31,INE081A01012,INE081A01012,,IND,18000000000,,,,,,,,,,
+H005,PORT_ALPHA,Enel SpA,listed_equity_and_corporate_bonds,6800000,2023-12-31,IT0003128367,IT0003128367,,ITA,55000000000,,,,,,,,,,
+H006,PORT_ALPHA,GreenBuild SME (Private),business_loans_and_unlisted_equity,3000000,2023-12-31,GreenBuild_SME,,,GBR,,22000000,false,,,,,,,,
+H007,PORT_ALPHA,AgriCorp Unlisted,business_loans_and_unlisted_equity,1800000,2023-12-31,AgriCorp_Unlisted,,,BRA,,9500000,false,,,,,,,,
+H008,PORT_ALPHA,Solar Farm Alpha,project_finance,20000000,2023-12-31,SolarFarm_Alpha,,,ESP,,,,true,85000000,,,,,,
+H009,PORT_ALPHA,Offshore Wind Beta,project_finance,35000000,2023-12-31,OffshoreWind_Beta,,,GBR,,,,true,220000000,,,,,,
+H010,PORT_ALPHA,City Centre Office Block,commercial_real_estate,9000000,2023-12-31,CityOffice_DE,,,DEU,,,,,,,42000000,,,,
+H011,PORT_ALPHA,Industrial Warehouse Park,commercial_real_estate,5500000,2023-12-31,Warehouse_PL,,,POL,,,,,,,18500000,,,,
+H012,PORT_ALPHA,Residential Mortgage Pool A,mortgages,7200000,2023-12-31,MortgagePool_A,,,GBR,,,,,,,,6800000,,,
+H013,PORT_ALPHA,Residential Mortgage Pool B,mortgages,4100000,2023-12-31,MortgagePool_B,,,FRA,,,,,,,,3900000,,,
+H014,PORT_ALPHA,Fleet Vehicles Leasing Co,motor_vehicle_loans,2200000,2023-12-31,FleetVehicles,,,DEU,,,,,,,,,1950000,,
+H015,PORT_ALPHA,Electric Van Fleet Ltd,motor_vehicle_loans,1500000,2023-12-31,EVFleet_NL,,,NLD,,,,,,,,,1400000,,
+H016,PORT_ALPHA,Germany Federal Republic,sovereign_debt,25000000,2023-12-31,Germany_DEU,DE0001102580,,DEU,,,,,,,,,,5310000000000,1890000000000
+H017,PORT_ALPHA,Republic of Brazil,sovereign_debt,10000000,2023-12-31,Brazil_BRA,,,BRA,,,,,,,,,,3840000000000,2100000000000
+H018,PORT_ALPHA,Republic of India,sovereign_debt,8000000,2023-12-31,India_IND,,,IND,,,,,,,,,,11900000000000,3500000000000

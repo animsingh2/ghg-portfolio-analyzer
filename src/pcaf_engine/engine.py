@@ -135,11 +135,33 @@ def _compute_attribution_factor(
     """
     denominator = holding.attribution_denominator
 
-    if denominator is None or denominator <= 0:
+    if denominator is None:
+        # PCAF (2025) §5.6: motor vehicle loans with unknown origination value
+        # must apply 100% attribution as a conservative fallback.
+        if holding.asset_class.value == "motor_vehicle_loans":
+            warnings.warn(
+                f"Holding {holding.holding_id} (motor_vehicle_loans): "
+                "vehicle_value_at_origination_usd is unknown. "
+                "Applying 100% attribution per PCAF (2025) §5.6 conservative fallback.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return 1.0, holding.outstanding_amount_usd
         if config.warn_missing_denominator:
             warnings.warn(
                 f"Holding {holding.holding_id} ({holding.asset_class.value}): "
-                f"attribution denominator is missing or zero. "
+                f"attribution denominator is missing. "
+                f"Financed emissions will be None for this holding.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return None, None
+
+    if denominator <= 0:
+        if config.warn_missing_denominator:
+            warnings.warn(
+                f"Holding {holding.holding_id} ({holding.asset_class.value}): "
+                f"attribution denominator is zero or negative. "
                 f"Financed emissions will be None for this holding.",
                 UserWarning,
                 stacklevel=3,
