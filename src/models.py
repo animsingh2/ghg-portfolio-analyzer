@@ -159,17 +159,8 @@ class EmissionsRecord:
             return None
         return sum(w * s for w, s in zip(weights, scores)) / sum(weights)
 
-    @property
-    def error_margin_pct(self) -> Optional[float]:
-        """Approximate error margin based on weighted DQ score."""
-        score = self.weighted_dq_score
-        if score is None:
-            return None
-        margins = {1: 0.075, 2: 0.15, 3: 0.25, 4: 0.35, 5: 0.45}
-        lower = int(score)
-        upper = min(lower + 1, 5)
-        frac  = score - lower
-        return margins[lower] * (1 - frac) + margins[upper] * frac
+    # error_margin_pct removed: PCAF (2025) does not specify numerical error margins
+    # per DQ score. Use the DQ score itself for data quality disclosure per §6.
 
 
 # ---------------------------------------------------------------------------

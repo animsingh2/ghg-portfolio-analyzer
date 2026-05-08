@@ -173,7 +173,6 @@ class ReportBuilder:
                 "financed_scope_3_tco2e": h.financed_scope_3_tco2e,
                 "financed_total_tco2e": h.financed_total_tco2e,
                 "weighted_dq_score": h.weighted_dq_score,
-                "error_margin_pct": h.error_margin_pct,
                 "waci_contribution": h.waciContrib if hasattr(h, 'waciContrib') else None,
             }
             for h in self.holdings

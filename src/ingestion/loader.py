@@ -464,7 +464,6 @@ def emissions_to_dataframe(records: dict[str, EmissionsRecord]) -> pd.DataFrame:
             "scope_3_total_tco2e": r.total_scope_3,
             "total_tco2e":      r.total_emissions,
             "weighted_dq_score": r.weighted_dq_score,
-            "error_margin_pct": r.error_margin_pct,
             "revenue_usd":      r.revenue_usd,
             "gics_sector":      r.gics_sector,
             "country_iso3":     r.country_iso3,

@@ -104,7 +104,6 @@ class HoldingEmissionsResult:
 
     # Data quality
     weighted_dq_score: Optional[float]
-    error_margin_pct: Optional[float]
 
     # WACI components (set only when revenue is available)
     emission_intensity_tco2e_per_mrevenue: Optional[float]  # entity-level
@@ -370,7 +369,6 @@ class PCАFEngine:
                 financed_scope_3_tco2e=None,
                 financed_total_tco2e=None,
                 weighted_dq_score=None,
-                error_margin_pct=None,
                 emission_intensity_tco2e_per_mrevenue=None,
                 waci_contribution=None,
                 emissions_record_found=False,
@@ -393,7 +391,6 @@ class PCАFEngine:
                 financed_scope_3_tco2e=None,
                 financed_total_tco2e=None,
                 weighted_dq_score=record.weighted_dq_score,
-                error_margin_pct=record.error_margin_pct,
                 emission_intensity_tco2e_per_mrevenue=_compute_entity_intensity(record, cfg),
                 waci_contribution=None,
                 emissions_record_found=True,
@@ -427,7 +424,6 @@ class PCАFEngine:
             financed_scope_3_tco2e=s3,
             financed_total_tco2e=total,
             weighted_dq_score=dq,
-            error_margin_pct=record.error_margin_pct,
             emission_intensity_tco2e_per_mrevenue=intensity,
             waci_contribution=waci_contrib,
             emissions_record_found=emissions_found,
@@ -473,10 +469,10 @@ class PCАFEngine:
                 total_s3 += hr.financed_scope_3_tco2e or 0.0
 
                 # Portfolio-weighted DQ score
-                # Weight each holding by its financed emissions (PCAF Table 10.5 guidance)
-                if hr.weighted_dq_score is not None and hr.financed_total_tco2e > 0:
-                    dq_weight_sum += hr.financed_total_tco2e
-                    dq_score_sum += hr.financed_total_tco2e * hr.weighted_dq_score
+                # PCAF (2025) Box 6.1-6: weight by outstanding amount, not financed emissions.
+                if hr.weighted_dq_score is not None:
+                    dq_weight_sum += hr.outstanding_amount_usd
+                    dq_score_sum += hr.outstanding_amount_usd * hr.weighted_dq_score
 
             # DQ coverage counters (based on emissions record, not attribution)
             if hr.weighted_dq_score is not None:
