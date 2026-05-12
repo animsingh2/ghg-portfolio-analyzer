@@ -73,7 +73,7 @@ The correct denominator varies by asset class per PCAF (2025) §5. The loader va
 
 **Temperature scoring in small portfolios**: The winsorised and no-cap temperature scores are often identical in portfolios with few holdings, because the 95th percentile of the overshoot distribution lands on the same outlier the no-cap score includes. The scores diverge in larger, more diversified portfolios.
 
-**Pathway alignment scope**: PCAF (2025) §6 covers financed emissions accounting only. The alignment module follows SBTi Corporate Net-Zero Standard (2021) and GFANZ guidance, which build on PCAF accounting but use their own methodologies. Sector benchmarks are calibrated to 2020 base levels and should be refreshed when SBTi publishes updated pathways.
+**Pathway alignment scope**: The alignment module follows SBTi Corporate Net-Zero Standard (2021) and GFANZ guidance, which build on PCAF accounting but use their own methodologies. Sector benchmarks are calibrated to 2020 base levels and should be refreshed when SBTi publishes updated pathways.
 
 **Stress test scope**: The stress test models transition risk (carbon pricing) only, at a single horizon year. Physical risk, time-path analysis, and macro-financial transmission are yet to be implemented.
 
