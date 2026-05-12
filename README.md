@@ -52,7 +52,7 @@ Open `reporting/dashboard.html` in any browser and click **Use sample data** for
 
 ## PCAF (2025) attribution denominators
 
-The correct denominator varies by asset class per PCAF (2025) §5. The loader validates this and warns when required fields are missing.
+The correct denominator varies by asset class per PCAF (2025). The loader validates this and warns when required fields are missing.
 
 | Asset class | Denominator | CSV column |
 |---|---|---|
